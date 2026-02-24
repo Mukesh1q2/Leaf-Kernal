@@ -1,54 +1,30 @@
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Star, ShoppingBag } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useCart } from "@/contexts/CartContext";
 import productMoringa from "@/assets/product-moringa.jpg";
 import productTurmeric from "@/assets/product-turmeric.jpg";
 import productAshwagandha from "@/assets/product-ashwagandha.jpg";
 import productSpirulina from "@/assets/product-spirulina.jpg";
 
-const products = [
-  {
-    name: "Moringa Leaf Powder",
-    tag: "Immunity",
-    price: 599,
-    originalPrice: 749,
-    rating: 4.8,
-    reviews: 234,
-    badge: "Best Seller",
-    image: productMoringa,
-  },
-  {
-    name: "Golden Turmeric Capsules",
-    tag: "Joint Care",
-    price: 799,
-    originalPrice: 999,
-    rating: 4.7,
-    reviews: 189,
-    badge: "20% OFF",
-    image: productTurmeric,
-  },
-  {
-    name: "Ashwagandha Root Powder",
-    tag: "Stress Relief",
-    price: 649,
-    originalPrice: 849,
-    rating: 4.9,
-    reviews: 312,
-    badge: "Top Rated",
-    image: productAshwagandha,
-  },
-  {
-    name: "Spirulina Superfood Blend",
-    tag: "Energy",
-    price: 899,
-    originalPrice: 1099,
-    rating: 4.6,
-    reviews: 156,
-    badge: "New",
-    image: productSpirulina,
-  },
-];
+const fallbackImages: Record<string, string> = {
+  "moringa-leaf-powder": productMoringa,
+  "golden-turmeric-capsules": productTurmeric,
+  "ashwagandha-root-powder": productAshwagandha,
+  "spirulina-superfood-blend": productSpirulina,
+};
 
 const BestSellers = () => {
+  const [products, setProducts] = useState<any[]>([]);
+  const { addToCart } = useCart();
+
+  useEffect(() => {
+    supabase.from("products").select("*").eq("is_featured", true).order("review_count", { ascending: false }).limit(8)
+      .then(({ data }) => setProducts(data || []));
+  }, []);
+
   return (
     <section id="bestsellers" className="py-16 md:py-24">
       <div className="container">
@@ -60,51 +36,52 @@ const BestSellers = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {products.map((product, i) => (
             <motion.div
-              key={product.name}
+              key={product.id}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
               className="group bg-background rounded-xl border border-border overflow-hidden hover:shadow-xl transition-all duration-300"
             >
-              <div className="relative aspect-square bg-cream-dark overflow-hidden">
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <span className="absolute top-3 left-3 bg-secondary text-secondary-foreground text-xs font-bold px-2.5 py-1 rounded-full">
-                  {product.badge}
-                </span>
-              </div>
-
+              <Link to={`/product/${product.slug}`}>
+                <div className="relative aspect-square bg-cream-dark overflow-hidden">
+                  <img
+                    src={fallbackImages[product.slug] || product.image_url || "/placeholder.svg"}
+                    alt={product.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  {product.badge && (
+                    <span className="absolute top-3 left-3 bg-secondary text-secondary-foreground text-xs font-bold px-2.5 py-1 rounded-full">{product.badge}</span>
+                  )}
+                </div>
+              </Link>
               <div className="p-4">
-                <span className="text-xs text-secondary font-medium uppercase tracking-wide">{product.tag}</span>
-                <h3 className="font-heading font-semibold text-foreground mt-1 text-sm md:text-base">
-                  {product.name}
-                </h3>
-
+                <Link to={`/product/${product.slug}`}>
+                  <h3 className="font-heading font-semibold text-foreground mt-1 text-sm md:text-base hover:text-secondary transition-colors">{product.name}</h3>
+                </Link>
                 <div className="flex items-center gap-1 mt-2">
                   <Star size={14} className="fill-gold text-gold" />
                   <span className="text-sm font-medium text-foreground">{product.rating}</span>
-                  <span className="text-xs text-muted-foreground">({product.reviews})</span>
+                  <span className="text-xs text-muted-foreground">({product.review_count})</span>
                 </div>
-
                 <div className="flex items-center justify-between mt-3">
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold text-foreground">₹{product.price}</span>
-                    <span className="text-sm text-muted-foreground line-through">₹{product.originalPrice}</span>
+                    {product.original_price && <span className="text-sm text-muted-foreground line-through">₹{product.original_price}</span>}
                   </div>
-                  <button
-                    className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-forest-light transition-colors"
-                    aria-label={`Add ${product.name} to cart`}
-                  >
+                  <button onClick={() => addToCart(product.id)} className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-forest-light transition-colors" aria-label={`Add ${product.name} to cart`}>
                     <ShoppingBag size={16} />
                   </button>
                 </div>
               </div>
             </motion.div>
           ))}
+        </div>
+
+        <div className="text-center mt-8">
+          <Link to="/shop" className="inline-flex items-center px-8 py-3 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors">
+            View All Products
+          </Link>
         </div>
       </div>
     </section>
