@@ -1,13 +1,40 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 const Cart = () => {
   const { items, loading, subtotal, updateQuantity, removeFromCart } = useCart();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const shipping = subtotal >= 999 ? 0 : 79;
   const total = subtotal + shipping;
+
+  const handleCheckout = async () => {
+    if (!user) {
+      toast({ title: "Please sign in", description: "You need to be logged in to checkout.", variant: "destructive" });
+      return;
+    }
+    setCheckoutLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {});
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (e: any) {
+      toast({ title: "Checkout failed", description: e.message, variant: "destructive" });
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -26,7 +53,6 @@ const Cart = () => {
           </div>
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Cart items */}
             <div className="lg:col-span-2 space-y-4">
               {items.map(item => (
                 <div key={item.id} className="flex gap-4 p-4 bg-background border border-border rounded-xl">
@@ -52,7 +78,6 @@ const Cart = () => {
               ))}
             </div>
 
-            {/* Order summary */}
             <div className="bg-muted rounded-xl p-6 h-fit sticky top-24">
               <h3 className="font-heading font-semibold text-lg text-foreground mb-4">Order Summary</h3>
               <div className="space-y-3 text-sm">
@@ -61,8 +86,12 @@ const Cart = () => {
                 {shipping > 0 && <p className="text-xs text-secondary">Add ₹{(999 - subtotal).toFixed(0)} more for free shipping</p>}
                 <div className="border-t border-border pt-3 flex justify-between text-base"><span className="font-semibold text-foreground">Total</span><span className="font-bold text-foreground">₹{total.toFixed(2)}</span></div>
               </div>
-              <button className="w-full mt-6 py-3.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-forest-light transition-colors">
-                Proceed to Checkout
+              <button
+                onClick={handleCheckout}
+                disabled={checkoutLoading}
+                className="w-full mt-6 py-3.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-forest-light transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {checkoutLoading ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : "Proceed to Checkout"}
               </button>
               <Link to="/shop" className="block text-center text-sm text-secondary hover:underline mt-3">Continue Shopping</Link>
             </div>

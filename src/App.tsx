@@ -18,6 +18,14 @@ import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
 import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
+import CheckoutSuccess from "./pages/CheckoutSuccess";
+import CheckoutCancel from "./pages/CheckoutCancel";
+import AdminLayout from "./components/admin/AdminLayout";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminProducts from "./pages/admin/AdminProducts";
+import AdminOrders from "./pages/admin/AdminOrders";
+import AdminBlog from "./pages/admin/AdminBlog";
+import AdminFAQs from "./pages/admin/AdminFAQs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +52,15 @@ const App = () => (
               <Route path="/blog/:slug" element={<BlogPost />} />
               <Route path="/faq" element={<FAQ />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/checkout/success" element={<CheckoutSuccess />} />
+              <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="blog" element={<AdminBlog />} />
+                <Route path="faqs" element={<AdminFAQs />} />
+              </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
