@@ -4,17 +4,6 @@ import { motion } from "framer-motion";
 import { Star, ShoppingBag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
-import productMoringa from "@/assets/product-moringa.jpg";
-import productTurmeric from "@/assets/product-turmeric.jpg";
-import productAshwagandha from "@/assets/product-ashwagandha.jpg";
-import productSpirulina from "@/assets/product-spirulina.jpg";
-
-const fallbackImages: Record<string, string> = {
-  "moringa-leaf-powder": productMoringa,
-  "golden-turmeric-capsules": productTurmeric,
-  "ashwagandha-root-powder": productAshwagandha,
-  "spirulina-superfood-blend": productSpirulina,
-};
 
 const BestSellers = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -46,7 +35,7 @@ const BestSellers = () => {
               <Link to={`/product/${product.slug}`}>
                 <div className="relative aspect-square bg-cream-dark overflow-hidden">
                   <img
-                    src={fallbackImages[product.slug] || product.image_url || "/placeholder.svg"}
+                    src={product.image_url || "/placeholder.svg"}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
