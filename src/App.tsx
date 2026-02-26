@@ -26,6 +26,15 @@ import AdminProducts from "./pages/admin/AdminProducts";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminBlog from "./pages/admin/AdminBlog";
 import AdminFAQs from "./pages/admin/AdminFAQs";
+import AdminReviews from "./pages/admin/AdminReviews";
+import AdminCoupons from "./pages/admin/AdminCoupons";
+import AdminBanners from "./pages/admin/AdminBanners";
+import AdminCustomers from "./pages/admin/AdminCustomers";
+import AdminTestimonials from "./pages/admin/AdminTestimonials";
+import AdminInventory from "./pages/admin/AdminInventory";
+import AdminSettings from "./pages/admin/AdminSettings";
+import AdminActivity from "./pages/admin/AdminActivity";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +69,15 @@ const App = () => (
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="blog" element={<AdminBlog />} />
                 <Route path="faqs" element={<AdminFAQs />} />
+                <Route path="reviews" element={<AdminReviews />} />
+                <Route path="coupons" element={<AdminCoupons />} />
+                <Route path="banners" element={<AdminBanners />} />
+                <Route path="customers" element={<AdminCustomers />} />
+                <Route path="testimonials" element={<AdminTestimonials />} />
+                <Route path="inventory" element={<AdminInventory />} />
+                <Route path="settings" element={<AdminSettings />} />
+                <Route path="activity" element={<AdminActivity />} />
+                <Route path="analytics" element={<AdminAnalytics />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

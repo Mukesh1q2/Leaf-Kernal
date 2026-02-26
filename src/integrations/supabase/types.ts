@@ -59,6 +59,87 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_activity_log: {
+        Row: {
+          action: string
+          admin_id: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+        }
+        Insert: {
+          action: string
+          admin_id: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      banners: {
+        Row: {
+          bg_color: string | null
+          created_at: string
+          cta_link: string | null
+          cta_text: string | null
+          ends_at: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          position: string | null
+          sort_order: number | null
+          starts_at: string | null
+          subtitle: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          bg_color?: string | null
+          created_at?: string
+          cta_link?: string | null
+          cta_text?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          position?: string | null
+          sort_order?: number | null
+          starts_at?: string | null
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          bg_color?: string | null
+          created_at?: string
+          cta_link?: string | null
+          cta_text?: string | null
+          ends_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          position?: string | null
+          sort_order?: number | null
+          starts_at?: string | null
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       blog_posts: {
         Row: {
           category: string | null
@@ -160,6 +241,63 @@ export type Database = {
           name?: string
           slug?: string
           sort_order?: number | null
+        }
+        Relationships: []
+      }
+      coupons: {
+        Row: {
+          applicable_ids: string[] | null
+          applicable_to: string | null
+          code: string
+          created_at: string
+          discount_type: string
+          discount_value: number
+          first_order_only: boolean | null
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          min_order_value: number | null
+          per_customer_limit: number | null
+          updated_at: string
+          used_count: number | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          applicable_ids?: string[] | null
+          applicable_to?: string | null
+          code: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          first_order_only?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_order_value?: number | null
+          per_customer_limit?: number | null
+          updated_at?: string
+          used_count?: number | null
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          applicable_ids?: string[] | null
+          applicable_to?: string | null
+          code?: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          first_order_only?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_order_value?: number | null
+          per_customer_limit?: number | null
+          updated_at?: string
+          used_count?: number | null
+          valid_from?: string | null
+          valid_to?: string | null
         }
         Relationships: []
       }
@@ -494,6 +632,66 @@ export type Database = {
           },
         ]
       }
+      site_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
+      testimonials: {
+        Row: {
+          city: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          photo_url: string | null
+          product: string | null
+          quote: string
+          rating: number | null
+          sort_order: number | null
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          photo_url?: string | null
+          product?: string | null
+          quote: string
+          rating?: number | null
+          sort_order?: number | null
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          photo_url?: string | null
+          product?: string | null
+          quote?: string
+          rating?: number | null
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -555,7 +753,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role:
+        | "admin"
+        | "moderator"
+        | "user"
+        | "content_manager"
+        | "inventory_manager"
+        | "customer_support"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -683,7 +887,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: [
+        "admin",
+        "moderator",
+        "user",
+        "content_manager",
+        "inventory_manager",
+        "customer_support",
+      ],
     },
   },
 } as const

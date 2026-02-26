@@ -1,56 +1,96 @@
-import { LayoutDashboard, Package, ShoppingCart, FileText, HelpCircle, ArrowLeft } from "lucide-react";
+import {
+  LayoutDashboard, Package, ShoppingCart, FileText, HelpCircle,
+  ArrowLeft, Star, Gift, Image, Users, Settings, BarChart3, Archive, ClipboardList
+} from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
+  SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const items = [
-  { title: "Overview", url: "/admin", icon: LayoutDashboard },
-  { title: "Products", url: "/admin/products", icon: Package },
-  { title: "Orders", url: "/admin/orders", icon: ShoppingCart },
-  { title: "Blog", url: "/admin/blog", icon: FileText },
-  { title: "FAQs", url: "/admin/faqs", icon: HelpCircle },
+const sections = [
+  {
+    label: "Main",
+    items: [
+      { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
+      { title: "Activity Log", url: "/admin/activity", icon: ClipboardList },
+    ],
+  },
+  {
+    label: "Catalog",
+    items: [
+      { title: "Products", url: "/admin/products", icon: Package },
+      { title: "Inventory", url: "/admin/inventory", icon: Archive },
+    ],
+  },
+  {
+    label: "Sales",
+    items: [
+      { title: "Orders", url: "/admin/orders", icon: ShoppingCart },
+      { title: "Customers", url: "/admin/customers", icon: Users },
+      { title: "Coupons", url: "/admin/coupons", icon: Gift },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { title: "Blog", url: "/admin/blog", icon: FileText },
+      { title: "FAQs", url: "/admin/faqs", icon: HelpCircle },
+      { title: "Banners", url: "/admin/banners", icon: Image },
+      { title: "Testimonials", url: "/admin/testimonials", icon: Star },
+    ],
+  },
+  {
+    label: "Insights",
+    items: [
+      { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
+      { title: "Reviews", url: "/admin/reviews", icon: Star },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { title: "Settings", url: "/admin/settings", icon: Settings },
+    ],
+  },
 ];
 
 const AdminSidebar = () => {
   return (
-    <Sidebar>
+    <Sidebar className="border-r border-border">
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center justify-between">
-            <span>Admin</span>
-            <Link to="/" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-              <ArrowLeft size={12} /> Store
-            </Link>
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/admin"}
-                      className="hover:bg-sidebar-accent"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    >
-                      <item.icon className="mr-2 h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {sections.map((section) => (
+          <SidebarGroup key={section.label}>
+            <SidebarGroupLabel className="flex items-center justify-between">
+              <span>{section.label}</span>
+              {section.label === "Main" && (
+                <Link to="/" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                  <ArrowLeft size={12} /> Store
+                </Link>
+              )}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        end={item.url === "/admin"}
+                        className="hover:bg-sidebar-accent"
+                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      >
+                        <item.icon className="mr-2 h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
     </Sidebar>
   );
