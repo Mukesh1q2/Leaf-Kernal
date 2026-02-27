@@ -35,6 +35,7 @@ import AdminInventory from "./pages/admin/AdminInventory";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminActivity from "./pages/admin/AdminActivity";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import AdminLogin from "./pages/admin/AdminLogin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,6 +64,7 @@ const App = () => (
               <Route path="/contact" element={<Contact />} />
               <Route path="/checkout/success" element={<CheckoutSuccess />} />
               <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />
                 <Route path="products" element={<AdminProducts />} />

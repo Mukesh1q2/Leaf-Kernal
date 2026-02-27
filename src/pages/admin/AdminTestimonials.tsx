@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Star } from "lucide-react";
+import ImageUpload from "@/components/admin/ImageUpload";
 
 const emptyForm = { name: "", city: "", product: "", quote: "", photo_url: "", rating: "5", sort_order: "0", is_active: true };
 
@@ -126,6 +127,7 @@ const AdminTestimonials = () => {
             </div>
             <div><Label>Product</Label><Input value={form.product} onChange={(e) => setForm({ ...form, product: e.target.value })} /></div>
             <div><Label>Quote</Label><Textarea value={form.quote} onChange={(e) => setForm({ ...form, quote: e.target.value })} rows={3} /></div>
+            <div><Label>Photo</Label><ImageUpload value={form.photo_url} onChange={(url) => setForm({ ...form, photo_url: url })} folder="testimonials" /></div>
             <div className="grid grid-cols-3 gap-4">
               <div><Label>Rating</Label><Input type="number" min="1" max="5" value={form.rating} onChange={(e) => setForm({ ...form, rating: e.target.value })} /></div>
               <div><Label>Sort Order</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></div>

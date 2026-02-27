@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,11 +7,28 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import AdminSidebar from "./AdminSidebar";
+import { SESSION_TIMEOUT_MS } from "@/pages/admin/AdminLogin";
 
 const AdminLayout = () => {
   const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const navigate = useNavigate();
+
+  const checkSessionTimeout = useCallback(() => {
+    const start = localStorage.getItem("admin_session_start");
+    if (start && Date.now() - parseInt(start) > SESSION_TIMEOUT_MS) {
+      localStorage.removeItem("admin_session_start");
+      supabase.auth.signOut();
+      navigate("/admin/login", { replace: true });
+      return true;
+    }
+    return false;
+  }, [navigate]);
+
+  useEffect(() => {
+    const interval = setInterval(checkSessionTimeout, 60_000);
+    return () => clearInterval(interval);
+  }, [checkSessionTimeout]);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -19,6 +36,7 @@ const AdminLayout = () => {
         setIsAdmin(false);
         return;
       }
+      if (checkSessionTimeout()) return;
       const { data } = await supabase.rpc("has_role", {
         _user_id: user.id,
         _role: "admin",
@@ -26,10 +44,10 @@ const AdminLayout = () => {
       setIsAdmin(!!data);
     };
     if (!authLoading) checkAdmin();
-  }, [user, authLoading]);
+  }, [user, authLoading, checkSessionTimeout]);
 
   useEffect(() => {
-    if (isAdmin === false) navigate("/", { replace: true });
+    if (isAdmin === false) navigate("/admin/login", { replace: true });
   }, [isAdmin, navigate]);
 
   if (authLoading || isAdmin === null) {
