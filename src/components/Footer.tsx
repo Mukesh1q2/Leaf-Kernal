@@ -53,7 +53,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-12 pt-8 border-t border-forest-light flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm opacity-60">© 2026 Leaf & Kernel Superfoods Co. All rights reserved.</p>
+          <p className="text-sm opacity-60">© 2026 Leaf & Kernel Superfoods Co. All rights reserved. | Design by <a href="https://theqbitlabs.com" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-100 transition-opacity">The Qbitlabs</a></p>
           <div className="flex items-center gap-4 text-sm opacity-60">
             <span>FSSAI Licensed</span>
             <span>•</span>
