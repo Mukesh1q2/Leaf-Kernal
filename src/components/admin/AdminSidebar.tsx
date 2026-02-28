@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Package, ShoppingCart, FileText, HelpCircle,
-  ArrowLeft, Star, Gift, Image, Users, Settings, BarChart3, Archive, ClipboardList
+  ArrowLeft, Star, Gift, Image, Users, Settings, BarChart3, Archive, ClipboardList, Shield
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
@@ -51,6 +51,7 @@ const sections = [
   {
     label: "System",
     items: [
+      { title: "User Roles", url: "/admin/users", icon: Shield },
       { title: "Settings", url: "/admin/settings", icon: Settings },
     ],
   },
