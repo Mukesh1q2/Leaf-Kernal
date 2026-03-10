@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { Star, ShoppingBag, Filter, X } from "lucide-react";
+import { Star, ShoppingBag, Filter, X, Heart } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -28,6 +29,7 @@ const Shop = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [concerns, setConcerns] = useState<HealthConcern[]>([]);
+  const [concernProductIds, setConcernProductIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedConcern, setSelectedConcern] = useState<string | null>(null);
@@ -35,6 +37,7 @@ const Shop = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [searchParams] = useSearchParams();
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
 
   useEffect(() => {
     const concern = searchParams.get("concern");
@@ -59,8 +62,25 @@ const Shop = () => {
     fetchData();
   }, []);
 
+  // Fetch product IDs for selected health concern
+  useEffect(() => {
+    if (!selectedConcern) {
+      setConcernProductIds(null);
+      return;
+    }
+    const fetchConcernProducts = async () => {
+      const { data } = await supabase
+        .from("product_health_concerns")
+        .select("product_id")
+        .eq("concern_id", selectedConcern);
+      setConcernProductIds(new Set((data || []).map(d => d.product_id)));
+    };
+    fetchConcernProducts();
+  }, [selectedConcern]);
+
   let filtered = [...products];
   if (selectedCategory) filtered = filtered.filter(p => p.category_id === selectedCategory);
+  if (selectedConcern && concernProductIds) filtered = filtered.filter(p => concernProductIds.has(p.id));
   if (sortBy === "price-low") filtered.sort((a, b) => a.price - b.price);
   else if (sortBy === "price-high") filtered.sort((a, b) => b.price - a.price);
   else if (sortBy === "rating") filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
@@ -69,14 +89,12 @@ const Shop = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main>
-        {/* Hero banner */}
         <div className="bg-primary py-12 text-center">
           <h1 className="text-3xl md:text-4xl font-heading font-bold text-primary-foreground">Shop Superfoods</h1>
           <p className="text-primary-foreground/70 mt-2">Discover plant-powered nutrition for every wellness goal</p>
         </div>
 
         <div className="container py-8">
-          {/* Toolbar */}
           <div className="flex items-center justify-between mb-6">
             <button onClick={() => setShowFilters(!showFilters)} className="md:hidden flex items-center gap-2 text-sm font-medium text-foreground border border-border rounded-lg px-4 py-2">
               <Filter size={16} /> Filters
@@ -91,7 +109,6 @@ const Shop = () => {
           </div>
 
           <div className="flex gap-8">
-            {/* Sidebar filters */}
             <aside className={`${showFilters ? "block" : "hidden"} md:block w-full md:w-60 shrink-0`}>
               <div className="sticky top-24 space-y-6">
                 <div className="flex items-center justify-between md:hidden">
@@ -99,7 +116,6 @@ const Shop = () => {
                   <button onClick={() => setShowFilters(false)}><X size={20} /></button>
                 </div>
 
-                {/* Category filter */}
                 <div>
                   <h4 className="font-heading font-semibold text-sm mb-3">Category</h4>
                   <div className="space-y-2">
@@ -114,7 +130,6 @@ const Shop = () => {
                   </div>
                 </div>
 
-                {/* Health concern filter */}
                 <div>
                   <h4 className="font-heading font-semibold text-sm mb-3">Health Concern</h4>
                   <div className="space-y-2">
@@ -131,7 +146,6 @@ const Shop = () => {
               </div>
             </aside>
 
-            {/* Product grid */}
             <div className="flex-1">
               {loading ? (
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -155,6 +169,13 @@ const Shop = () => {
                           {product.badge && (
                             <span className="absolute top-3 left-3 bg-secondary text-secondary-foreground text-xs font-bold px-2.5 py-1 rounded-full">{product.badge}</span>
                           )}
+                          <button
+                            onClick={(e) => { e.preventDefault(); toggleWishlist(product.id); }}
+                            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center hover:bg-background transition-colors"
+                            aria-label="Toggle wishlist"
+                          >
+                            <Heart size={16} className={isInWishlist(product.id) ? "fill-destructive text-destructive" : "text-foreground"} />
+                          </button>
                         </div>
                       </Link>
                       <div className="p-4">

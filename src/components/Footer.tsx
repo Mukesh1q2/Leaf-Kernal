@@ -1,10 +1,35 @@
+import { Link } from "react-router-dom";
 import { Leaf, Instagram, Facebook, Twitter, Youtube } from "lucide-react";
 
 const footerLinks = {
-  Shop: ["Powders", "Capsules", "Oils & Ghee", "Seeds & Grains", "Teas & Infusions", "Bundles"],
-  "Health Concerns": ["Gut Care", "Immunity", "Heart Care", "Joint Care", "Sleep Care", "Skin & Hair"],
-  Company: ["About Us", "Our Story", "Sourcing", "Certifications", "Careers", "Contact"],
-  Support: ["FAQs", "Shipping Policy", "Refund Policy", "Privacy Policy", "Terms of Service"],
+  Shop: [
+    { label: "Powders", to: "/shop?category=powders" },
+    { label: "Capsules", to: "/shop?category=capsules" },
+    { label: "Oils & Ghee", to: "/shop?category=oils-ghee" },
+    { label: "Seeds & Grains", to: "/shop?category=seeds-grains" },
+    { label: "Teas & Infusions", to: "/shop?category=teas-infusions" },
+    { label: "Bundles", to: "/shop?category=bundles" },
+  ],
+  "Health Concerns": [
+    { label: "Gut Care", to: "/shop?concern=gut-care" },
+    { label: "Immunity", to: "/shop?concern=immunity" },
+    { label: "Heart Care", to: "/shop?concern=heart-care" },
+    { label: "Joint Care", to: "/shop?concern=joint-care" },
+    { label: "Sleep Care", to: "/shop?concern=sleep-care" },
+    { label: "Skin & Hair", to: "/shop?concern=skin-hair" },
+  ],
+  Company: [
+    { label: "About Us", to: "/about" },
+    { label: "Blog", to: "/blog" },
+    { label: "Contact", to: "/contact" },
+    { label: "FAQs", to: "/faq" },
+  ],
+  Support: [
+    { label: "FAQs", to: "/faq" },
+    { label: "Contact Us", to: "/contact" },
+    { label: "My Account", to: "/account" },
+    { label: "Track Order", to: "/account" },
+  ],
 };
 
 const Footer = () => {
@@ -12,7 +37,6 @@ const Footer = () => {
     <footer className="bg-primary text-primary-foreground">
       <div className="container py-16">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
-          {/* Brand column */}
           <div className="col-span-2 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
               <Leaf size={28} className="text-leaf-light" />
@@ -35,16 +59,15 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Link columns */}
           {Object.entries(footerLinks).map(([title, links]) => (
             <div key={title}>
               <h4 className="font-heading text-sm font-semibold mb-4 opacity-90">{title}</h4>
               <ul className="space-y-2.5">
                 {links.map((link) => (
-                  <li key={link}>
-                    <a href="#" className="text-sm opacity-70 hover:opacity-100 transition-opacity">
-                      {link}
-                    </a>
+                  <li key={link.label}>
+                    <Link to={link.to} className="text-sm opacity-70 hover:opacity-100 transition-opacity">
+                      {link.label}
+                    </Link>
                   </li>
                 ))}
               </ul>
