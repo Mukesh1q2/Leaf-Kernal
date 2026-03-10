@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import heroImg from "@/assets/hero-superfoods.jpg";
 
 const HeroSection = () => {
@@ -27,18 +28,18 @@ const HeroSection = () => {
             Rooted in ancient Ayurvedic wisdom, crafted with care for your everyday wellness journey.
           </p>
           <div className="flex flex-wrap gap-4">
-            <a
-              href="#bestsellers"
+            <Link
+              to="/shop"
               className="inline-flex items-center px-8 py-3.5 bg-secondary text-secondary-foreground font-semibold rounded-lg hover:bg-leaf transition-colors shadow-lg"
             >
               Shop Superfoods
-            </a>
-            <a
-              href="#concerns"
+            </Link>
+            <Link
+              to="/shop"
               className="inline-flex items-center px-8 py-3.5 bg-primary-foreground/10 text-primary-foreground font-semibold rounded-lg hover:bg-primary-foreground/20 transition-colors backdrop-blur-sm border border-primary-foreground/20"
             >
-              Take the Health Quiz
-            </a>
+              Shop by Goal
+            </Link>
           </div>
         </motion.div>
       </div>

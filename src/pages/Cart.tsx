@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,30 +8,96 @@ import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
 const Cart = () => {
-  const { items, loading, subtotal, updateQuantity, removeFromCart } = useCart();
+  const { items, loading, subtotal, updateQuantity, removeFromCart, clearCart } = useCart();
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const shipping = subtotal >= 999 ? 0 : 79;
   const total = subtotal + shipping;
+
+  const loadRazorpayScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) { resolve(true); return; }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
   const handleCheckout = async () => {
     if (!user) {
       toast({ title: "Please sign in", description: "You need to be logged in to checkout.", variant: "destructive" });
       return;
     }
+
     setCheckoutLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {});
+      const loaded = await loadRazorpayScript();
+      if (!loaded) throw new Error("Failed to load payment gateway");
+
+      const { data, error } = await supabase.functions.invoke("create-razorpay-order", {});
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (data?.url) {
-        window.location.href = data.url;
-      }
+
+      const options = {
+        key: data.razorpay_key_id,
+        amount: data.amount,
+        currency: data.currency,
+        name: "Leaf & Kernel",
+        description: "Superfood Order",
+        order_id: data.razorpay_order_id,
+        prefill: {
+          email: data.user_email,
+          name: data.user_name,
+        },
+        theme: {
+          color: "#1A4D2E",
+        },
+        handler: async (response: any) => {
+          try {
+            const { data: verifyData, error: verifyError } = await supabase.functions.invoke("verify-razorpay-payment", {
+              body: {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                order_id: data.order_id,
+              },
+            });
+            if (verifyError) throw verifyError;
+            if (verifyData?.error) throw new Error(verifyData.error);
+
+            await clearCart();
+            navigate("/checkout/success");
+          } catch (e: any) {
+            toast({ title: "Payment verification failed", description: e.message, variant: "destructive" });
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setCheckoutLoading(false);
+            toast({ title: "Payment cancelled", description: "You can try again anytime." });
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", (response: any) => {
+        toast({ title: "Payment failed", description: response.error?.description || "Please try again.", variant: "destructive" });
+        setCheckoutLoading(false);
+      });
+      rzp.open();
     } catch (e: any) {
       toast({ title: "Checkout failed", description: e.message, variant: "destructive" });
-    } finally {
       setCheckoutLoading(false);
     }
   };
@@ -91,8 +157,9 @@ const Cart = () => {
                 disabled={checkoutLoading}
                 className="w-full mt-6 py-3.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-forest-light transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {checkoutLoading ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : "Proceed to Checkout"}
+                {checkoutLoading ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : "Pay with Razorpay"}
               </button>
+              <p className="text-xs text-center text-muted-foreground mt-2">UPI, Cards, Net Banking & more</p>
               <Link to="/shop" className="block text-center text-sm text-secondary hover:underline mt-3">Continue Shopping</Link>
             </div>
           </div>

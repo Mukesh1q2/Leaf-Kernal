@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 import { Star, ShoppingBag, Heart, Minus, Plus, ChevronRight, Truck, Shield, RotateCcw } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -14,6 +15,7 @@ const ProductDetail = () => {
   const [activeTab, setActiveTab] = useState("description");
   const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -21,7 +23,6 @@ const ProductDetail = () => {
       const { data } = await supabase.from("products").select("*").eq("slug", slug).single();
       if (data) {
         setProduct(data);
-        // Fetch related products from same category
         const { data: related } = await supabase.from("products").select("*").eq("category_id", data.category_id).neq("id", data.id).limit(4);
         setRelatedProducts(related || []);
       }
@@ -62,7 +63,6 @@ const ProductDetail = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main>
-        {/* Breadcrumb */}
         <div className="container py-4">
           <nav className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link to="/" className="hover:text-secondary">Home</Link>
@@ -75,7 +75,6 @@ const ProductDetail = () => {
 
         <div className="container pb-16">
           <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-            {/* Image */}
             <div className="relative aspect-square bg-cream-dark rounded-2xl overflow-hidden">
               <img src={product.image_url || "/placeholder.svg"} alt={product.name} className="w-full h-full object-cover" />
               {product.badge && (
@@ -83,7 +82,6 @@ const ProductDetail = () => {
               )}
             </div>
 
-            {/* Info */}
             <div>
               <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">{product.name}</h1>
               <p className="text-muted-foreground mt-2">{product.short_description}</p>
@@ -108,7 +106,6 @@ const ProductDetail = () => {
                 )}
               </div>
 
-              {/* Quantity */}
               <div className="flex items-center gap-4 mt-6">
                 <span className="text-sm font-medium text-foreground">Quantity:</span>
                 <div className="flex items-center border border-border rounded-lg">
@@ -118,17 +115,19 @@ const ProductDetail = () => {
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 mt-6">
                 <button onClick={() => addToCart(product.id, quantity)} className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-forest-light transition-colors">
                   <ShoppingBag size={20} /> Add to Cart
                 </button>
-                <button className="w-12 h-12 border border-border rounded-lg flex items-center justify-center hover:bg-muted transition-colors" aria-label="Add to wishlist">
-                  <Heart size={20} className="text-foreground" />
+                <button
+                  onClick={() => toggleWishlist(product.id)}
+                  className={`w-12 h-12 border rounded-lg flex items-center justify-center transition-colors ${isInWishlist(product.id) ? "border-destructive bg-destructive/10" : "border-border hover:bg-muted"}`}
+                  aria-label="Toggle wishlist"
+                >
+                  <Heart size={20} className={isInWishlist(product.id) ? "fill-destructive text-destructive" : "text-foreground"} />
                 </button>
               </div>
 
-              {/* Trust badges */}
               <div className="grid grid-cols-3 gap-4 mt-8 pt-6 border-t border-border">
                 <div className="text-center">
                   <Truck size={24} className="text-secondary mx-auto mb-1" />
@@ -146,15 +145,10 @@ const ProductDetail = () => {
             </div>
           </div>
 
-          {/* Tabs */}
           <div className="mt-12">
             <div className="flex border-b border-border gap-0 overflow-x-auto">
               {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === tab.id ? "border-secondary text-secondary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                >
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === tab.id ? "border-secondary text-secondary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
                   {tab.label}
                 </button>
               ))}
@@ -167,7 +161,6 @@ const ProductDetail = () => {
             </div>
           </div>
 
-          {/* Related products */}
           {relatedProducts.length > 0 && (
             <div className="mt-12">
               <h2 className="text-2xl font-heading font-bold text-foreground mb-6">You May Also Like</h2>
