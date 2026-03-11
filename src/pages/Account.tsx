@@ -3,10 +3,12 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Package, Heart, MapPin, LogOut, Edit2, Save, Loader2, Trash2 } from "lucide-react";
+import { User, Package, Heart, MapPin, LogOut, Edit2, Save, Loader2, Trash2, Plus, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+
+const emptyAddress = { full_name: "", phone: "", address_line1: "", address_line2: "", city: "", state: "", pincode: "", label: "Home", is_default: false };
 
 const Account = () => {
   const { user, signOut } = useAuth();
@@ -19,6 +21,9 @@ const Account = () => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({ full_name: "", phone: "" });
+  const [addressForm, setAddressForm] = useState(emptyAddress);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -27,8 +32,14 @@ const Account = () => {
       if (data) setEditForm({ full_name: data.full_name || "", phone: data.phone || "" });
     });
     supabase.from("orders").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => setOrders(data || []));
-    supabase.from("addresses").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => setAddresses(data || []));
+    fetchAddresses();
   }, [user]);
+
+  const fetchAddresses = async () => {
+    if (!user) return;
+    const { data } = await supabase.from("addresses").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+    setAddresses(data || []);
+  };
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -42,6 +53,56 @@ const Account = () => {
       toast({ title: "Profile updated!" });
     }
     setSaving(false);
+  };
+
+  const handleSaveAddress = async () => {
+    if (!user) return;
+    setSaving(true);
+
+    // If setting as default, unset others first
+    if (addressForm.is_default) {
+      await supabase.from("addresses").update({ is_default: false }).eq("user_id", user.id);
+    }
+
+    if (editingAddressId) {
+      const { error } = await supabase.from("addresses").update(addressForm).eq("id", editingAddressId).eq("user_id", user.id);
+      if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
+      else { toast({ title: "Address updated!" }); }
+    } else {
+      const { error } = await supabase.from("addresses").insert({ ...addressForm, user_id: user.id });
+      if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
+      else { toast({ title: "Address added!" }); }
+    }
+
+    setShowAddressForm(false);
+    setEditingAddressId(null);
+    setAddressForm(emptyAddress);
+    await fetchAddresses();
+    setSaving(false);
+  };
+
+  const handleEditAddress = (addr: any) => {
+    setAddressForm({
+      full_name: addr.full_name, phone: addr.phone || "", address_line1: addr.address_line1,
+      address_line2: addr.address_line2 || "", city: addr.city, state: addr.state,
+      pincode: addr.pincode, label: addr.label || "Home", is_default: addr.is_default || false,
+    });
+    setEditingAddressId(addr.id);
+    setShowAddressForm(true);
+  };
+
+  const handleDeleteAddress = async (id: string) => {
+    await supabase.from("addresses").delete().eq("id", id).eq("user_id", user!.id);
+    toast({ title: "Address deleted" });
+    await fetchAddresses();
+  };
+
+  const handleSetDefault = async (id: string) => {
+    if (!user) return;
+    await supabase.from("addresses").update({ is_default: false }).eq("user_id", user.id);
+    await supabase.from("addresses").update({ is_default: true }).eq("id", id);
+    toast({ title: "Default address updated" });
+    await fetchAddresses();
   };
 
   if (!user) return (
@@ -181,19 +242,72 @@ const Account = () => {
 
             {activeTab === "addresses" && (
               <div>
-                <h2 className="font-heading font-semibold text-lg text-foreground mb-4">Saved Addresses</h2>
-                {addresses.length === 0 ? (
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-heading font-semibold text-lg text-foreground">Saved Addresses</h2>
+                  <button
+                    onClick={() => { setAddressForm(emptyAddress); setEditingAddressId(null); setShowAddressForm(true); }}
+                    className="flex items-center gap-1.5 text-sm font-medium text-secondary hover:underline"
+                  >
+                    <Plus size={14} /> Add Address
+                  </button>
+                </div>
+
+                {showAddressForm && (
+                  <div className="bg-muted rounded-xl p-5 mb-4 space-y-3">
+                    <h3 className="font-heading font-semibold text-foreground text-sm">{editingAddressId ? "Edit Address" : "New Address"}</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input placeholder="Full Name *" value={addressForm.full_name} onChange={e => setAddressForm({ ...addressForm, full_name: e.target.value })} className="px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm" required />
+                      <input placeholder="Phone" value={addressForm.phone} onChange={e => setAddressForm({ ...addressForm, phone: e.target.value })} className="px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm" />
+                    </div>
+                    <input placeholder="Address Line 1 *" value={addressForm.address_line1} onChange={e => setAddressForm({ ...addressForm, address_line1: e.target.value })} className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm" required />
+                    <input placeholder="Address Line 2" value={addressForm.address_line2} onChange={e => setAddressForm({ ...addressForm, address_line2: e.target.value })} className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm" />
+                    <div className="grid grid-cols-3 gap-3">
+                      <input placeholder="City *" value={addressForm.city} onChange={e => setAddressForm({ ...addressForm, city: e.target.value })} className="px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm" required />
+                      <input placeholder="State *" value={addressForm.state} onChange={e => setAddressForm({ ...addressForm, state: e.target.value })} className="px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm" required />
+                      <input placeholder="Pincode *" value={addressForm.pincode} onChange={e => setAddressForm({ ...addressForm, pincode: e.target.value })} className="px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm" required />
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <select value={addressForm.label} onChange={e => setAddressForm({ ...addressForm, label: e.target.value })} className="px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm">
+                        <option value="Home">Home</option>
+                        <option value="Work">Work</option>
+                        <option value="Other">Other</option>
+                      </select>
+                      <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                        <input type="checkbox" checked={addressForm.is_default} onChange={e => setAddressForm({ ...addressForm, is_default: e.target.checked })} className="rounded" />
+                        Set as default
+                      </label>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={handleSaveAddress} disabled={saving || !addressForm.full_name || !addressForm.address_line1 || !addressForm.city || !addressForm.state || !addressForm.pincode} className="px-5 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-forest-light transition-colors disabled:opacity-50">
+                        {saving ? "Saving..." : editingAddressId ? "Update" : "Save"}
+                      </button>
+                      <button onClick={() => { setShowAddressForm(false); setEditingAddressId(null); }} className="px-5 py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {addresses.length === 0 && !showAddressForm ? (
                   <div className="text-center py-12 bg-muted rounded-xl">
                     <MapPin size={40} className="text-muted-foreground mx-auto mb-3" />
                     <p className="text-muted-foreground">No saved addresses</p>
+                    <button onClick={() => setShowAddressForm(true)} className="text-secondary hover:underline mt-2 inline-block text-sm">Add your first address</button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {addresses.map(addr => (
                       <div key={addr.id} className="bg-background border border-border rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded text-muted-foreground">{addr.label || "Home"}</span>
-                          {addr.is_default && <span className="text-xs font-medium text-secondary">Default</span>}
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded text-muted-foreground">{addr.label || "Home"}</span>
+                            {addr.is_default && <span className="text-xs font-medium text-secondary flex items-center gap-0.5"><Star size={10} /> Default</span>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {!addr.is_default && (
+                              <button onClick={() => handleSetDefault(addr.id)} className="text-xs text-muted-foreground hover:text-secondary">Set default</button>
+                            )}
+                            <button onClick={() => handleEditAddress(addr)} className="text-muted-foreground hover:text-secondary"><Edit2 size={14} /></button>
+                            <button onClick={() => handleDeleteAddress(addr.id)} className="text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
+                          </div>
                         </div>
                         <p className="font-medium text-foreground text-sm">{addr.full_name}</p>
                         <p className="text-sm text-muted-foreground">{addr.address_line1}{addr.address_line2 ? `, ${addr.address_line2}` : ""}</p>
