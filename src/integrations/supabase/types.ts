@@ -662,6 +662,36 @@ export type Database = {
           },
         ]
       }
+      serviceable_pincodes: {
+        Row: {
+          city: string | null
+          cod_available: boolean | null
+          created_at: string
+          estimated_days: number | null
+          id: string
+          pincode: string
+          state: string | null
+        }
+        Insert: {
+          city?: string | null
+          cod_available?: boolean | null
+          created_at?: string
+          estimated_days?: number | null
+          id?: string
+          pincode: string
+          state?: string | null
+        }
+        Update: {
+          city?: string | null
+          cod_available?: boolean | null
+          created_at?: string
+          estimated_days?: number | null
+          id?: string
+          pincode?: string
+          state?: string | null
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           id: string

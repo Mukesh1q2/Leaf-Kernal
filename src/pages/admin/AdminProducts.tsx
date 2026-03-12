@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import RichTextEditor from "@/components/RichTextEditor";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -270,7 +271,7 @@ const AdminProducts = () => {
                 <Textarea value={form.short_description} onChange={(e) => setForm({ ...form, short_description: e.target.value })} rows={2} maxLength={160} />
                 <p className="text-xs text-muted-foreground mt-1">{form.short_description.length}/160</p>
               </div>
-              <div><Label>Full Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} /></div>
+              <div><Label>Full Description</Label><RichTextEditor content={form.description} onChange={(html) => setForm({ ...form, description: html })} placeholder="Detailed product description..." /></div>
               <div><Label>Badge</Label><Input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} placeholder="e.g. Best Seller, New" /></div>
             </TabsContent>
 
@@ -292,7 +293,7 @@ const AdminProducts = () => {
             <TabsContent value="details" className="space-y-4 mt-4">
               <div><Label>Ingredients</Label><Textarea value={form.ingredients} onChange={(e) => setForm({ ...form, ingredients: e.target.value })} rows={3} /></div>
               <div><Label>How to Use</Label><Textarea value={form.how_to_use} onChange={(e) => setForm({ ...form, how_to_use: e.target.value })} rows={3} /></div>
-              <div><Label>Benefits</Label><Textarea value={form.benefits} onChange={(e) => setForm({ ...form, benefits: e.target.value })} rows={3} /></div>
+              <div><Label>Benefits</Label><RichTextEditor content={form.benefits} onChange={(html) => setForm({ ...form, benefits: html })} placeholder="List product benefits..." /></div>
             </TabsContent>
 
             <TabsContent value="inventory" className="space-y-4 mt-4">
