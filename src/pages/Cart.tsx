@@ -7,6 +7,7 @@ import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Loader2 } from "lucide-re
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import PincodeChecker from "@/components/PincodeChecker";
 
 declare global {
   interface Window {
