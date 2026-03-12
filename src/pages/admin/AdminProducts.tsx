@@ -271,7 +271,7 @@ const AdminProducts = () => {
                 <Textarea value={form.short_description} onChange={(e) => setForm({ ...form, short_description: e.target.value })} rows={2} maxLength={160} />
                 <p className="text-xs text-muted-foreground mt-1">{form.short_description.length}/160</p>
               </div>
-              <div><Label>Full Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} /></div>
+              <div><Label>Full Description</Label><RichTextEditor content={form.description} onChange={(html) => setForm({ ...form, description: html })} placeholder="Detailed product description..." /></div>
               <div><Label>Badge</Label><Input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} placeholder="e.g. Best Seller, New" /></div>
             </TabsContent>
 
