@@ -293,7 +293,7 @@ const AdminProducts = () => {
             <TabsContent value="details" className="space-y-4 mt-4">
               <div><Label>Ingredients</Label><Textarea value={form.ingredients} onChange={(e) => setForm({ ...form, ingredients: e.target.value })} rows={3} /></div>
               <div><Label>How to Use</Label><Textarea value={form.how_to_use} onChange={(e) => setForm({ ...form, how_to_use: e.target.value })} rows={3} /></div>
-              <div><Label>Benefits</Label><Textarea value={form.benefits} onChange={(e) => setForm({ ...form, benefits: e.target.value })} rows={3} /></div>
+              <div><Label>Benefits</Label><RichTextEditor content={form.benefits} onChange={(html) => setForm({ ...form, benefits: html })} placeholder="List product benefits..." /></div>
             </TabsContent>
 
             <TabsContent value="inventory" className="space-y-4 mt-4">

@@ -3,14 +3,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { FileText } from "lucide-react";
+import GSTInvoice from "@/components/GSTInvoice";
 
 const statuses = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [filter, setFilter] = useState("all");
+  const [invoiceOrder, setInvoiceOrder] = useState<any>(null);
+  const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchOrders = async () => {
@@ -24,6 +31,13 @@ const AdminOrders = () => {
     await supabase.from("orders").update({ status }).eq("id", id);
     toast({ title: `Order updated to ${status}` });
     fetchOrders();
+  };
+
+  const viewInvoice = async (order: any) => {
+    const { data } = await supabase.from("order_items").select("*").eq("order_id", order.id);
+    setInvoiceOrder(order);
+    setInvoiceItems(data || []);
+    setInvoiceOpen(true);
   };
 
   const filtered = filter === "all" ? orders : orders.filter((o) => o.status === filter);
@@ -51,6 +65,7 @@ const AdminOrders = () => {
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Update</TableHead>
+                <TableHead>Invoice</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -78,15 +93,26 @@ const AdminOrders = () => {
                       </SelectContent>
                     </Select>
                   </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" onClick={() => viewInvoice(o)} title="View Invoice">
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No orders found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No orders found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          {invoiceOrder && <GSTInvoice order={invoiceOrder} items={invoiceItems} onClose={() => setInvoiceOpen(false)} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

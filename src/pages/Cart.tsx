@@ -161,6 +161,10 @@ const Cart = () => {
                 {checkoutLoading ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : "Pay with Razorpay"}
               </button>
               <p className="text-xs text-center text-muted-foreground mt-2">UPI, Cards, Net Banking & more</p>
+              <div className="mt-4 pt-4 border-t border-border">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Check Delivery Availability</p>
+                <PincodeChecker />
+              </div>
               <Link to="/shop" className="block text-center text-sm text-secondary hover:underline mt-3">Continue Shopping</Link>
             </div>
           </div>
