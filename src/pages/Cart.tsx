@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Loader2 } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Loader2, Tag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -21,8 +21,65 @@ const Cart = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number; type: string } | null>(null);
+
   const shipping = subtotal >= 999 ? 0 : 79;
-  const total = subtotal + shipping;
+  const discount = appliedCoupon
+    ? appliedCoupon.type === "percentage"
+      ? Math.round(subtotal * appliedCoupon.discount / 100)
+      : appliedCoupon.discount
+    : 0;
+  const total = subtotal + shipping - discount;
+
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("coupons")
+        .select("*")
+        .eq("code", couponCode.trim().toUpperCase())
+        .eq("is_active", true)
+        .single();
+
+      if (error || !data) {
+        toast({ title: "Invalid coupon", description: "This coupon code is not valid.", variant: "destructive" });
+        setCouponLoading(false);
+        return;
+      }
+
+      if (data.valid_to && new Date(data.valid_to) < new Date()) {
+        toast({ title: "Coupon expired", description: "This coupon has expired.", variant: "destructive" });
+        setCouponLoading(false);
+        return;
+      }
+
+      if (data.min_order_value && subtotal < Number(data.min_order_value)) {
+        toast({ title: "Minimum not met", description: `Minimum order of ₹${data.min_order_value} required.`, variant: "destructive" });
+        setCouponLoading(false);
+        return;
+      }
+
+      if (data.max_uses && (data.used_count || 0) >= data.max_uses) {
+        toast({ title: "Coupon exhausted", description: "This coupon has reached its usage limit.", variant: "destructive" });
+        setCouponLoading(false);
+        return;
+      }
+
+      setAppliedCoupon({ code: data.code, discount: Number(data.discount_value), type: data.discount_type });
+      toast({ title: "Coupon applied!", description: `${data.code} — ${data.discount_type === "percentage" ? `${data.discount_value}% off` : `₹${data.discount_value} off`}` });
+    } catch {
+      toast({ title: "Error", description: "Could not apply coupon.", variant: "destructive" });
+    }
+    setCouponLoading(false);
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+  };
 
   const loadRazorpayScript = (): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -57,13 +114,8 @@ const Cart = () => {
         name: "Leaf & Kernel",
         description: "Superfood Order",
         order_id: data.razorpay_order_id,
-        prefill: {
-          email: data.user_email,
-          name: data.user_name,
-        },
-        theme: {
-          color: "#1A4D2E",
-        },
+        prefill: { email: data.user_email, name: data.user_name },
+        theme: { color: "#1A4D2E" },
         handler: async (response: any) => {
           try {
             const { data: verifyData, error: verifyError } = await supabase.functions.invoke("verify-razorpay-payment", {
@@ -76,7 +128,6 @@ const Cart = () => {
             });
             if (verifyError) throw verifyError;
             if (verifyData?.error) throw new Error(verifyData.error);
-
             await clearCart();
             navigate("/checkout/success");
           } catch (e: any) {
@@ -147,8 +198,42 @@ const Cart = () => {
 
             <div className="bg-muted rounded-xl p-6 h-fit sticky top-24">
               <h3 className="font-heading font-semibold text-lg text-foreground mb-4">Order Summary</h3>
+              
+              {/* Coupon Section */}
+              <div className="mb-4 pb-4 border-b border-border">
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between bg-primary/10 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Tag size={14} className="text-primary" />
+                      <span className="text-sm font-medium text-primary">{appliedCoupon.code}</span>
+                    </div>
+                    <button onClick={removeCoupon} className="text-xs text-destructive hover:underline">Remove</button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Coupon code"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <button
+                      onClick={applyCoupon}
+                      disabled={couponLoading || !couponCode.trim()}
+                      className="px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
+                    >
+                      {couponLoading ? <Loader2 size={14} className="animate-spin" /> : "Apply"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium text-foreground">₹{subtotal.toFixed(2)}</span></div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-primary"><span>Discount</span><span className="font-medium">-₹{discount.toFixed(2)}</span></div>
+                )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span className="font-medium text-foreground">{shipping === 0 ? "FREE" : `₹${shipping}`}</span></div>
                 {shipping > 0 && <p className="text-xs text-secondary">Add ₹{(999 - subtotal).toFixed(0)} more for free shipping</p>}
                 <div className="border-t border-border pt-3 flex justify-between text-base"><span className="font-semibold text-foreground">Total</span><span className="font-bold text-foreground">₹{total.toFixed(2)}</span></div>
