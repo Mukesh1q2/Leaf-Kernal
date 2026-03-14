@@ -90,6 +90,8 @@ const App = () => (
                   <Route path="activity" element={<AdminActivity />} />
                   <Route path="analytics" element={<AdminAnalytics />} />
                   <Route path="users" element={<AdminUsers />} />
+                  <Route path="bundles" element={<AdminBundles />} />
+                  <Route path="abandoned-carts" element={<AdminAbandonedCarts />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
