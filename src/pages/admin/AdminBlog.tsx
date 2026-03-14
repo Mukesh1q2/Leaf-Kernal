@@ -32,7 +32,7 @@ const AdminBlog = () => {
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (p: any) => {
     setEditId(p.id);
-    setForm({ title: p.title, slug: p.slug, excerpt: p.excerpt || "", content: p.content || "", category: p.category || "", image_url: p.image_url || "", is_published: p.is_published });
+    setForm({ title: p.title, slug: p.slug, excerpt: p.excerpt || "", content: p.content || "", category: p.category || "", image_url: p.image_url || "", is_published: p.is_published, scheduled_at: p.scheduled_at ? new Date(p.scheduled_at).toISOString().slice(0, 16) : "" });
     setDialogOpen(true);
   };
 
