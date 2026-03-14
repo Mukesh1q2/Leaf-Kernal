@@ -38,6 +38,10 @@ import AdminActivity from "./pages/admin/AdminActivity";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminLogin from "./pages/admin/AdminLogin";
+import AdminBundles from "./pages/admin/AdminBundles";
+import AdminAbandonedCarts from "./pages/admin/AdminAbandonedCarts";
+import ReferralProgram from "./pages/ReferralProgram";
+import LoyaltyPoints from "./pages/LoyaltyPoints";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
