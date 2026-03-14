@@ -71,6 +71,8 @@ const App = () => (
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/checkout/success" element={<CheckoutSuccess />} />
                 <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+                <Route path="/referral" element={<ReferralProgram />} />
+                <Route path="/loyalty" element={<LoyaltyPoints />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<AdminDashboard />} />
