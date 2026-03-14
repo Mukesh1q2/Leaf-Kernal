@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      abandoned_carts: {
+        Row: {
+          cart_snapshot: Json
+          cart_total: number | null
+          created_at: string | null
+          id: string
+          recovered: boolean | null
+          recovery_email_sent: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cart_snapshot?: Json
+          cart_total?: number | null
+          created_at?: string | null
+          id?: string
+          recovered?: boolean | null
+          recovery_email_sent?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cart_snapshot?: Json
+          cart_total?: number | null
+          created_at?: string | null
+          id?: string
+          recovered?: boolean | null
+          recovery_email_sent?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       addresses: {
         Row: {
           address_line1: string
@@ -150,6 +183,7 @@ export type Database = {
           image_url: string | null
           is_published: boolean | null
           published_at: string | null
+          scheduled_at: string | null
           slug: string
           tags: string[] | null
           title: string
@@ -164,6 +198,7 @@ export type Database = {
           image_url?: string | null
           is_published?: boolean | null
           published_at?: string | null
+          scheduled_at?: string | null
           slug: string
           tags?: string[] | null
           title: string
@@ -178,12 +213,49 @@ export type Database = {
           image_url?: string | null
           is_published?: boolean | null
           published_at?: string | null
+          scheduled_at?: string | null
           slug?: string
           tags?: string[] | null
           title?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      bundle_items: {
+        Row: {
+          bundle_id: string
+          id: string
+          product_id: string
+          quantity: number | null
+        }
+        Insert: {
+          bundle_id: string
+          id?: string
+          product_id: string
+          quantity?: number | null
+        }
+        Update: {
+          bundle_id?: string
+          id?: string
+          product_id?: string
+          quantity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bundle_items_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "product_bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bundle_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cart_items: {
         Row: {
@@ -391,6 +463,62 @@ export type Database = {
         }
         Relationships: []
       }
+      loyalty_balances: {
+        Row: {
+          total_points: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          total_points?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          total_points?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      loyalty_points: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          order_id: string | null
+          points: number
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          order_id?: string | null
+          points?: number
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          order_id?: string | null
+          points?: number
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_points_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string
@@ -478,6 +606,45 @@ export type Database = {
           total?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      product_bundles: {
+        Row: {
+          bundle_price: number
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          name: string
+          original_total: number
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          bundle_price?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name: string
+          original_total?: number
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          bundle_price?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name?: string
+          original_total?: number
+          slug?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -618,6 +785,57 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      referral_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          created_at: string | null
+          id: string
+          referral_code: string
+          referred_email: string
+          referred_user_id: string | null
+          referrer_id: string
+          reward_given: boolean | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          referral_code: string
+          referred_email: string
+          referred_user_id?: string | null
+          referrer_id: string
+          reward_given?: boolean | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          referral_code?: string
+          referred_email?: string
+          referred_user_id?: string | null
+          referrer_id?: string
+          reward_given?: boolean | null
+          status?: string | null
         }
         Relationships: []
       }
