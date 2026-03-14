@@ -47,7 +47,15 @@ const sections = [
     label: "Insights",
     items: [
       { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
+      { title: "Abandoned Carts", url: "/admin/abandoned-carts", icon: ShoppingBag },
       { title: "Reviews", url: "/admin/reviews", icon: Star },
+    ],
+  },
+  {
+    label: "Growth",
+    items: [
+      { title: "Loyalty Points", url: "/admin/loyalty", icon: Award },
+      { title: "Referrals", url: "/admin/referrals", icon: UserPlus },
     ],
   },
   {
