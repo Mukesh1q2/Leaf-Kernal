@@ -40,6 +40,8 @@ const AdminBanners = () => {
       cta_text: b.cta_text || "Shop Now", cta_link: b.cta_link || "/shop",
       bg_color: b.bg_color || "#1A4D2E", position: b.position,
       sort_order: String(b.sort_order || 0), is_active: b.is_active,
+      starts_at: b.starts_at ? new Date(b.starts_at).toISOString().slice(0, 16) : "",
+      ends_at: b.ends_at ? new Date(b.ends_at).toISOString().slice(0, 16) : "",
     });
     setDialogOpen(true);
   };
