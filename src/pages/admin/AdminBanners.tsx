@@ -149,6 +149,10 @@ const AdminBanners = () => {
               <div><Label>Sort Order</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></div>
             </div>
             <label className="flex items-center gap-2 text-sm"><Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} /> Active</label>
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>Start Date</Label><Input type="datetime-local" value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} /><p className="text-xs text-muted-foreground mt-1">Auto-activate at this time</p></div>
+              <div><Label>End Date</Label><Input type="datetime-local" value={form.ends_at} onChange={(e) => setForm({ ...form, ends_at: e.target.value })} /><p className="text-xs text-muted-foreground mt-1">Auto-deactivate at this time</p></div>
+            </div>
             <Button onClick={save} className="w-full">{editId ? "Update" : "Create"} Banner</Button>
           </div>
         </DialogContent>
