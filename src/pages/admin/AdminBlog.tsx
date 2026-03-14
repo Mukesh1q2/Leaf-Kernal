@@ -37,7 +37,7 @@ const AdminBlog = () => {
   };
 
   const save = async () => {
-    const payload = { ...form, slug: form.slug || form.title.toLowerCase().replace(/\s+/g, "-"), published_at: form.is_published ? new Date().toISOString() : null };
+    const payload = { ...form, slug: form.slug || form.title.toLowerCase().replace(/\s+/g, "-"), published_at: form.is_published ? new Date().toISOString() : null, scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null };
     if (editId) {
       await supabase.from("blog_posts").update(payload).eq("id", editId);
       toast({ title: "Post updated" });
