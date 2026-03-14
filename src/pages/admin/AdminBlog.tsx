@@ -107,6 +107,7 @@ const AdminBlog = () => {
             <div><Label>Excerpt</Label><Textarea value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} rows={2} /></div>
             <div><Label>Content</Label><RichTextEditor content={form.content} onChange={(html) => setForm({ ...form, content: html })} placeholder="Write your blog post..." /></div>
             <div><Label>Image URL</Label><Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} /></div>
+            <div><Label>Schedule Publish</Label><Input type="datetime-local" value={form.scheduled_at} onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })} /><p className="text-xs text-muted-foreground mt-1">Leave empty to publish immediately when toggled</p></div>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_published} onChange={(e) => setForm({ ...form, is_published: e.target.checked })} /> Published</label>
             <Button onClick={save} className="w-full">{editId ? "Update" : "Create"} Post</Button>
           </div>
