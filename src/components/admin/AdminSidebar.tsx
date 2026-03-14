@@ -22,6 +22,7 @@ const sections = [
     label: "Catalog",
     items: [
       { title: "Products", url: "/admin/products", icon: Package },
+      { title: "Bundles", url: "/admin/bundles", icon: PackageOpen },
       { title: "Inventory", url: "/admin/inventory", icon: Archive },
     ],
   },
