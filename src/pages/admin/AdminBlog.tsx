@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
-const emptyForm = { title: "", slug: "", excerpt: "", content: "", category: "", image_url: "", is_published: false };
+const emptyForm = { title: "", slug: "", excerpt: "", content: "", category: "", image_url: "", is_published: false, scheduled_at: "" };
 
 const AdminBlog = () => {
   const [posts, setPosts] = useState<any[]>([]);
