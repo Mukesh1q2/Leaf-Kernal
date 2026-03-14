@@ -15,6 +15,7 @@ import ImageUpload from "@/components/admin/ImageUpload";
 const emptyForm = {
   title: "", subtitle: "", image_url: "", cta_text: "Shop Now", cta_link: "/shop",
   bg_color: "#1A4D2E", position: "hero", sort_order: "0", is_active: true,
+  starts_at: "", ends_at: "",
 };
 
 const AdminBanners = () => {
