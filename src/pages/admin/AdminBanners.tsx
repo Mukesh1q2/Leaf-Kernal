@@ -15,6 +15,7 @@ import ImageUpload from "@/components/admin/ImageUpload";
 const emptyForm = {
   title: "", subtitle: "", image_url: "", cta_text: "Shop Now", cta_link: "/shop",
   bg_color: "#1A4D2E", position: "hero", sort_order: "0", is_active: true,
+  starts_at: "", ends_at: "",
 };
 
 const AdminBanners = () => {
@@ -39,6 +40,8 @@ const AdminBanners = () => {
       cta_text: b.cta_text || "Shop Now", cta_link: b.cta_link || "/shop",
       bg_color: b.bg_color || "#1A4D2E", position: b.position,
       sort_order: String(b.sort_order || 0), is_active: b.is_active,
+      starts_at: b.starts_at ? new Date(b.starts_at).toISOString().slice(0, 16) : "",
+      ends_at: b.ends_at ? new Date(b.ends_at).toISOString().slice(0, 16) : "",
     });
     setDialogOpen(true);
   };
@@ -48,6 +51,8 @@ const AdminBanners = () => {
       title: form.title, subtitle: form.subtitle || null, image_url: form.image_url || null,
       cta_text: form.cta_text, cta_link: form.cta_link, bg_color: form.bg_color,
       position: form.position, sort_order: parseInt(form.sort_order) || 0, is_active: form.is_active,
+      starts_at: form.starts_at ? new Date(form.starts_at).toISOString() : null,
+      ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
     };
     if (editId) {
       await supabase.from("banners").update(payload).eq("id", editId);
@@ -144,6 +149,10 @@ const AdminBanners = () => {
               <div><Label>Sort Order</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></div>
             </div>
             <label className="flex items-center gap-2 text-sm"><Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} /> Active</label>
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>Start Date</Label><Input type="datetime-local" value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} /><p className="text-xs text-muted-foreground mt-1">Auto-activate at this time</p></div>
+              <div><Label>End Date</Label><Input type="datetime-local" value={form.ends_at} onChange={(e) => setForm({ ...form, ends_at: e.target.value })} /><p className="text-xs text-muted-foreground mt-1">Auto-deactivate at this time</p></div>
+            </div>
             <Button onClick={save} className="w-full">{editId ? "Update" : "Create"} Banner</Button>
           </div>
         </DialogContent>

@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
-const emptyForm = { title: "", slug: "", excerpt: "", content: "", category: "", image_url: "", is_published: false };
+const emptyForm = { title: "", slug: "", excerpt: "", content: "", category: "", image_url: "", is_published: false, scheduled_at: "" };
 
 const AdminBlog = () => {
   const [posts, setPosts] = useState<any[]>([]);
@@ -32,12 +32,12 @@ const AdminBlog = () => {
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (p: any) => {
     setEditId(p.id);
-    setForm({ title: p.title, slug: p.slug, excerpt: p.excerpt || "", content: p.content || "", category: p.category || "", image_url: p.image_url || "", is_published: p.is_published });
+    setForm({ title: p.title, slug: p.slug, excerpt: p.excerpt || "", content: p.content || "", category: p.category || "", image_url: p.image_url || "", is_published: p.is_published, scheduled_at: p.scheduled_at ? new Date(p.scheduled_at).toISOString().slice(0, 16) : "" });
     setDialogOpen(true);
   };
 
   const save = async () => {
-    const payload = { ...form, slug: form.slug || form.title.toLowerCase().replace(/\s+/g, "-"), published_at: form.is_published ? new Date().toISOString() : null };
+    const payload = { ...form, slug: form.slug || form.title.toLowerCase().replace(/\s+/g, "-"), published_at: form.is_published ? new Date().toISOString() : null, scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null };
     if (editId) {
       await supabase.from("blog_posts").update(payload).eq("id", editId);
       toast({ title: "Post updated" });
@@ -107,6 +107,7 @@ const AdminBlog = () => {
             <div><Label>Excerpt</Label><Textarea value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} rows={2} /></div>
             <div><Label>Content</Label><RichTextEditor content={form.content} onChange={(html) => setForm({ ...form, content: html })} placeholder="Write your blog post..." /></div>
             <div><Label>Image URL</Label><Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} /></div>
+            <div><Label>Schedule Publish</Label><Input type="datetime-local" value={form.scheduled_at} onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })} /><p className="text-xs text-muted-foreground mt-1">Leave empty to publish immediately when toggled</p></div>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.is_published} onChange={(e) => setForm({ ...form, is_published: e.target.checked })} /> Published</label>
             <Button onClick={save} className="w-full">{editId ? "Update" : "Create"} Post</Button>
           </div>
