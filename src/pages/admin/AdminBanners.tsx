@@ -51,6 +51,8 @@ const AdminBanners = () => {
       title: form.title, subtitle: form.subtitle || null, image_url: form.image_url || null,
       cta_text: form.cta_text, cta_link: form.cta_link, bg_color: form.bg_color,
       position: form.position, sort_order: parseInt(form.sort_order) || 0, is_active: form.is_active,
+      starts_at: form.starts_at ? new Date(form.starts_at).toISOString() : null,
+      ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
     };
     if (editId) {
       await supabase.from("banners").update(payload).eq("id", editId);
