@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { Leaf, Instagram, Facebook, Twitter, Youtube } from "lucide-react";
+import { Instagram, Facebook, Twitter, Youtube } from "lucide-react";
+import logoWhite from "@/assets/logo-white.png";
 
 const footerLinks = {
   Shop: [
