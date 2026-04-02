@@ -38,7 +38,7 @@ const emptyForm = {
   name: "", slug: "", price: "", original_price: "", short_description: "", description: "",
   stock_quantity: "100", is_active: true, is_featured: false, badge: "",
   ingredients: "", how_to_use: "", benefits: "", category_id: "",
-  seo_title: "", seo_description: "",
+  image_url: "", seo_title: "", seo_description: "",
 };
 
 const AdminProducts = () => {
