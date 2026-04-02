@@ -39,9 +39,8 @@ const Footer = () => {
       <div className="container py-16">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
           <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <Leaf size={28} className="text-leaf-light" />
-              <span className="font-heading text-xl font-semibold">Leaf & Kernel</span>
+            <div className="mb-4">
+              <img src={logoWhite} alt="Leaf & Kernel Superfoods" className="h-16 w-auto" />
             </div>
             <p className="text-sm opacity-80 leading-relaxed mb-6">
               Plant-powered superfoods rooted in Ayurveda, crafted for modern life.
