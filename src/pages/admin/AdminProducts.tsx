@@ -99,6 +99,7 @@ const AdminProducts = () => {
       how_to_use: form.how_to_use || null,
       benefits: form.benefits || null,
       category_id: form.category_id || null,
+      image_url: form.image_url || null,
     };
     if (editId) {
       await supabase.from("products").update(payload).eq("id", editId);
