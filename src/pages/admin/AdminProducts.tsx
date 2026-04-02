@@ -275,6 +275,7 @@ const AdminProducts = () => {
               </div>
               <div><Label>Full Description</Label><RichTextEditor content={form.description} onChange={(html) => setForm({ ...form, description: html })} placeholder="Detailed product description..." /></div>
               <div><Label>Badge</Label><Input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} placeholder="e.g. Best Seller, New" /></div>
+              <div><Label>Product Image</Label><ImageUpload value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} /></div>
             </TabsContent>
 
             <TabsContent value="pricing" className="space-y-4 mt-4">
