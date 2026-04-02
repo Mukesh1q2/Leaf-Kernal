@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Package, ShoppingCart, FileText, HelpCircle,
   ArrowLeft, Star, Gift, Image, Users, Settings, BarChart3, Archive, ClipboardList, Shield,
-  PackageOpen, ShoppingBag, Award, UserPlus
+  PackageOpen, ShoppingBag, Award, UserPlus, FolderTree, Heart, MapPin, MessageSquare
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
