@@ -78,7 +78,7 @@ const AdminProducts = () => {
       badge: p.badge || "",
       ingredients: p.ingredients || "", how_to_use: p.how_to_use || "",
       benefits: p.benefits || "", category_id: p.category_id || "",
-      seo_title: "", seo_description: "",
+      image_url: p.image_url || "", seo_title: "", seo_description: "",
     });
     setDialogOpen(true);
   };
