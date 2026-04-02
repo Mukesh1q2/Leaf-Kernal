@@ -64,6 +64,8 @@ const sections = [
     label: "System",
     items: [
       { title: "User Roles", url: "/admin/users", icon: Shield },
+      { title: "Pincodes", url: "/admin/pincodes", icon: MapPin },
+      { title: "Inquiries", url: "/admin/inquiries", icon: MessageSquare },
       { title: "Settings", url: "/admin/settings", icon: Settings },
     ],
   },

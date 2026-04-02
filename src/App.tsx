@@ -98,6 +98,12 @@ const App = () => (
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="bundles" element={<AdminBundles />} />
                   <Route path="abandoned-carts" element={<AdminAbandonedCarts />} />
+                  <Route path="loyalty" element={<AdminLoyalty />} />
+                  <Route path="referrals" element={<AdminReferrals />} />
+                  <Route path="categories" element={<AdminCategories />} />
+                  <Route path="health-concerns" element={<AdminHealthConcerns />} />
+                  <Route path="pincodes" element={<AdminPincodes />} />
+                  <Route path="inquiries" element={<AdminInquiries />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
