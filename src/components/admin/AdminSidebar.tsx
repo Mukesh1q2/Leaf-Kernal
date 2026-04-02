@@ -22,7 +22,9 @@ const sections = [
     label: "Catalog",
     items: [
       { title: "Products", url: "/admin/products", icon: Package },
+      { title: "Categories", url: "/admin/categories", icon: FolderTree },
       { title: "Bundles", url: "/admin/bundles", icon: PackageOpen },
+      { title: "Health Concerns", url: "/admin/health-concerns", icon: Heart },
       { title: "Inventory", url: "/admin/inventory", icon: Archive },
     ],
   },
