@@ -33,7 +33,7 @@ const AdminSettings = () => {
   const saveAll = async () => {
     setSaving(true);
     const promises = Object.entries(settings).map(([key, value]) =>
-      supabase.from("site_settings").update({ value }).eq("key", key)
+      supabase.from("site_settings").upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" })
     );
     await Promise.all(promises);
     toast({ title: "Settings saved!" });

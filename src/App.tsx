@@ -40,6 +40,12 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminBundles from "./pages/admin/AdminBundles";
 import AdminAbandonedCarts from "./pages/admin/AdminAbandonedCarts";
+import AdminLoyalty from "./pages/admin/AdminLoyalty";
+import AdminReferrals from "./pages/admin/AdminReferrals";
+import AdminCategories from "./pages/admin/AdminCategories";
+import AdminHealthConcerns from "./pages/admin/AdminHealthConcerns";
+import AdminPincodes from "./pages/admin/AdminPincodes";
+import AdminInquiries from "./pages/admin/AdminInquiries";
 import ReferralProgram from "./pages/ReferralProgram";
 import LoyaltyPoints from "./pages/LoyaltyPoints";
 import NotFound from "./pages/NotFound";
@@ -92,6 +98,12 @@ const App = () => (
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="bundles" element={<AdminBundles />} />
                   <Route path="abandoned-carts" element={<AdminAbandonedCarts />} />
+                  <Route path="loyalty" element={<AdminLoyalty />} />
+                  <Route path="referrals" element={<AdminReferrals />} />
+                  <Route path="categories" element={<AdminCategories />} />
+                  <Route path="health-concerns" element={<AdminHealthConcerns />} />
+                  <Route path="pincodes" element={<AdminPincodes />} />
+                  <Route path="inquiries" element={<AdminInquiries />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

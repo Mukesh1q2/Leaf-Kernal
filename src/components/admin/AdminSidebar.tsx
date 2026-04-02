@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Package, ShoppingCart, FileText, HelpCircle,
   ArrowLeft, Star, Gift, Image, Users, Settings, BarChart3, Archive, ClipboardList, Shield,
-  PackageOpen, ShoppingBag, Award, UserPlus
+  PackageOpen, ShoppingBag, Award, UserPlus, FolderTree, Heart, MapPin, MessageSquare
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
@@ -22,7 +22,9 @@ const sections = [
     label: "Catalog",
     items: [
       { title: "Products", url: "/admin/products", icon: Package },
+      { title: "Categories", url: "/admin/categories", icon: FolderTree },
       { title: "Bundles", url: "/admin/bundles", icon: PackageOpen },
+      { title: "Health Concerns", url: "/admin/health-concerns", icon: Heart },
       { title: "Inventory", url: "/admin/inventory", icon: Archive },
     ],
   },
@@ -62,6 +64,8 @@ const sections = [
     label: "System",
     items: [
       { title: "User Roles", url: "/admin/users", icon: Shield },
+      { title: "Pincodes", url: "/admin/pincodes", icon: MapPin },
+      { title: "Inquiries", url: "/admin/inquiries", icon: MessageSquare },
       { title: "Settings", url: "/admin/settings", icon: Settings },
     ],
   },
