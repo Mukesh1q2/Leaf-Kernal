@@ -33,6 +33,7 @@ const MenuButton = ({ onClick, active, children, title }: { onClick: () => void;
 const RichTextEditor = ({ content, onChange, placeholder = "Start writing...", className }: RichTextEditorProps) => {
   const editor = useEditor({
     extensions: [
+      // @ts-ignore - version mismatch between tiptap packages
       StarterKit,
       Placeholder.configure({ placeholder }),
       Image.configure({ inline: false, allowBase64: true }),
@@ -40,7 +41,7 @@ const RichTextEditor = ({ content, onChange, placeholder = "Start writing...", c
       TableRow,
       TableCell,
       TableHeader,
-    ],
+    ] as any[],
     content,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
