@@ -14,12 +14,20 @@ import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
+interface RoleWithMaster {
+  role: AppRole;
+  is_master: boolean;
+}
+
 interface UserWithRoles {
   user_id: string;
   full_name: string | null;
   phone: string | null;
   roles: AppRole[];
+  masterRoles: Set<AppRole>;
 }
+
+const MASTER_ADMIN_ID = "69fd5e32-eada-4b57-865e-32db0b8ceb76";
 
 const ROLES: AppRole[] = ["admin", "moderator", "user", "content_manager", "inventory_manager", "customer_support"];
 
@@ -46,16 +54,22 @@ const AdminUsers = () => {
     setLoading(true);
     // Get all profiles
     const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, phone");
-    // Get all roles
-    const { data: roles } = await supabase.from("user_roles").select("user_id, role");
+    // Get all roles including is_master
+    const { data: roles } = await supabase.from("user_roles").select("user_id, role, is_master");
 
     if (!profiles) { setLoading(false); return; }
 
     const roleMap = new Map<string, AppRole[]>();
-    (roles || []).forEach((r) => {
+    const masterMap = new Map<string, Set<AppRole>>();
+    (roles || []).forEach((r: any) => {
       const existing = roleMap.get(r.user_id) || [];
       existing.push(r.role);
       roleMap.set(r.user_id, existing);
+      if (r.is_master) {
+        const masters = masterMap.get(r.user_id) || new Set();
+        masters.add(r.role);
+        masterMap.set(r.user_id, masters);
+      }
     });
 
     const merged: UserWithRoles[] = profiles.map((p) => ({
@@ -63,6 +77,7 @@ const AdminUsers = () => {
       full_name: p.full_name,
       phone: p.phone,
       roles: roleMap.get(p.user_id) || [],
+      masterRoles: masterMap.get(p.user_id) || new Set(),
     }));
 
     // Sort: users with roles first
@@ -125,6 +140,11 @@ const AdminUsers = () => {
   };
 
   const removeRole = async (userId: string, role: AppRole) => {
+    const user = users.find(u => u.user_id === userId);
+    if (user?.masterRoles.has(role)) {
+      toast({ title: "Cannot remove", description: "This is a protected master admin role.", variant: "destructive" });
+      return;
+    }
     if (!confirm(`Remove "${role}" role from this user?`)) return;
     const { error } = await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", role);
     if (error) {
@@ -224,16 +244,26 @@ const AdminUsers = () => {
                 <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No users found</TableCell></TableRow>
               ) : filtered.map(u => (
                 <TableRow key={u.user_id}>
-                  <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
+                  <TableCell className="font-medium">
+                    {u.full_name || "—"}
+                    {u.user_id === MASTER_ADMIN_ID && (
+                      <Badge variant="outline" className="ml-2 text-[10px] bg-yellow-50 text-yellow-700 border-yellow-300">Master</Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground font-mono">{u.user_id.slice(0, 8)}…</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {u.roles.map(r => (
                         <Badge key={r} variant="outline" className={`text-xs ${roleBadgeColor[r]}`}>
                           {r.replace(/_/g, " ")}
-                          <button onClick={() => removeRole(u.user_id, r)} className="ml-1 hover:text-destructive">
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+                          {!u.masterRoles.has(r) && (
+                            <button onClick={() => removeRole(u.user_id, r)} className="ml-1 hover:text-destructive">
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                          {u.masterRoles.has(r) && (
+                            <Shield className="ml-1 h-3 w-3 text-yellow-600" />
+                          )}
                         </Badge>
                       ))}
                     </div>
