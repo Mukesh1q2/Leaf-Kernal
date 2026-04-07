@@ -14,12 +14,20 @@ import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
+interface RoleWithMaster {
+  role: AppRole;
+  is_master: boolean;
+}
+
 interface UserWithRoles {
   user_id: string;
   full_name: string | null;
   phone: string | null;
   roles: AppRole[];
+  masterRoles: Set<AppRole>;
 }
+
+const MASTER_ADMIN_ID = "69fd5e32-eada-4b57-865e-32db0b8ceb76";
 
 const ROLES: AppRole[] = ["admin", "moderator", "user", "content_manager", "inventory_manager", "customer_support"];
 
