@@ -244,16 +244,26 @@ const AdminUsers = () => {
                 <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No users found</TableCell></TableRow>
               ) : filtered.map(u => (
                 <TableRow key={u.user_id}>
-                  <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
+                  <TableCell className="font-medium">
+                    {u.full_name || "—"}
+                    {u.user_id === MASTER_ADMIN_ID && (
+                      <Badge variant="outline" className="ml-2 text-[10px] bg-yellow-50 text-yellow-700 border-yellow-300">Master</Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground font-mono">{u.user_id.slice(0, 8)}…</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {u.roles.map(r => (
                         <Badge key={r} variant="outline" className={`text-xs ${roleBadgeColor[r]}`}>
                           {r.replace(/_/g, " ")}
-                          <button onClick={() => removeRole(u.user_id, r)} className="ml-1 hover:text-destructive">
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+                          {!u.masterRoles.has(r) && (
+                            <button onClick={() => removeRole(u.user_id, r)} className="ml-1 hover:text-destructive">
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                          {u.masterRoles.has(r) && (
+                            <Shield className="ml-1 h-3 w-3 text-yellow-600" />
+                          )}
                         </Badge>
                       ))}
                     </div>
