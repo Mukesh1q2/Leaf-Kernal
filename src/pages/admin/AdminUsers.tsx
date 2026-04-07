@@ -140,6 +140,11 @@ const AdminUsers = () => {
   };
 
   const removeRole = async (userId: string, role: AppRole) => {
+    const user = users.find(u => u.user_id === userId);
+    if (user?.masterRoles.has(role)) {
+      toast({ title: "Cannot remove", description: "This is a protected master admin role.", variant: "destructive" });
+      return;
+    }
     if (!confirm(`Remove "${role}" role from this user?`)) return;
     const { error } = await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", role);
     if (error) {
