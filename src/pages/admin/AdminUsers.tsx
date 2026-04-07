@@ -54,16 +54,22 @@ const AdminUsers = () => {
     setLoading(true);
     // Get all profiles
     const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, phone");
-    // Get all roles
-    const { data: roles } = await supabase.from("user_roles").select("user_id, role");
+    // Get all roles including is_master
+    const { data: roles } = await supabase.from("user_roles").select("user_id, role, is_master");
 
     if (!profiles) { setLoading(false); return; }
 
     const roleMap = new Map<string, AppRole[]>();
-    (roles || []).forEach((r) => {
+    const masterMap = new Map<string, Set<AppRole>>();
+    (roles || []).forEach((r: any) => {
       const existing = roleMap.get(r.user_id) || [];
       existing.push(r.role);
       roleMap.set(r.user_id, existing);
+      if (r.is_master) {
+        const masters = masterMap.get(r.user_id) || new Set();
+        masters.add(r.role);
+        masterMap.set(r.user_id, masters);
+      }
     });
 
     const merged: UserWithRoles[] = profiles.map((p) => ({
@@ -71,6 +77,7 @@ const AdminUsers = () => {
       full_name: p.full_name,
       phone: p.phone,
       roles: roleMap.get(p.user_id) || [],
+      masterRoles: masterMap.get(p.user_id) || new Set(),
     }));
 
     // Sort: users with roles first
