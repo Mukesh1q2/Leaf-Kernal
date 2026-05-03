@@ -30,13 +30,14 @@ const ChatWidget = () => {
     setLoading(true);
 
     let assistantSoFar = "";
+    let assistantStarted = false;
     const upsert = (chunk: string) => {
       assistantSoFar += chunk;
       setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.role === "assistant" && last !== messages[messages.length - 1]) {
+        if (assistantStarted) {
           return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
         }
+        assistantStarted = true;
         return [...prev, { role: "assistant", content: assistantSoFar }];
       });
     };
