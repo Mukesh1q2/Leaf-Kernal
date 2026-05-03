@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import SearchDialog from "@/components/SearchDialog";
+import NotificationBell from "@/components/NotificationBell";
 import logo from "@/assets/logo.png";
 
 const navLinks = [
@@ -104,6 +105,7 @@ const Header = () => {
             <button onClick={() => setSearchOpen(true)} className="p-2 text-foreground hover:text-secondary transition-colors" aria-label="Search (⌘K)">
               <Search size={20} />
             </button>
+            <NotificationBell />
             {isAdmin && (
               <Link to="/admin" className="p-2 text-secondary hover:text-primary transition-colors" aria-label="Admin" title="Admin Dashboard">
                 <Shield size={20} />

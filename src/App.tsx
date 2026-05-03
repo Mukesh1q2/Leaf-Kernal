@@ -6,6 +6,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
+import { NotificationsProvider } from "@/contexts/NotificationsContext";
+import ChatWidget from "@/components/ChatWidget";
+import RouteTracker from "@/components/RouteTracker";
 import Index from "./pages/Index";
 import Shop from "./pages/Shop";
 import ProductDetail from "./pages/ProductDetail";
@@ -46,8 +49,10 @@ import AdminCategories from "./pages/admin/AdminCategories";
 import AdminHealthConcerns from "./pages/admin/AdminHealthConcerns";
 import AdminPincodes from "./pages/admin/AdminPincodes";
 import AdminInquiries from "./pages/admin/AdminInquiries";
+import AdminDeliveries from "./pages/admin/AdminDeliveries";
 import ReferralProgram from "./pages/ReferralProgram";
 import LoyaltyPoints from "./pages/LoyaltyPoints";
+import TrackOrder from "./pages/TrackOrder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,10 +62,12 @@ const App = () => (
     <AuthProvider>
       <CartProvider>
         <WishlistProvider>
+          <NotificationsProvider>
           <TooltipProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <RouteTracker />
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/shop" element={<Shop />} />
@@ -79,11 +86,13 @@ const App = () => (
                 <Route path="/checkout/cancel" element={<CheckoutCancel />} />
                 <Route path="/referral" element={<ReferralProgram />} />
                 <Route path="/loyalty" element={<LoyaltyPoints />} />
+                <Route path="/track/:orderId" element={<TrackOrder />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<AdminDashboard />} />
                   <Route path="products" element={<AdminProducts />} />
                   <Route path="orders" element={<AdminOrders />} />
+                  <Route path="deliveries" element={<AdminDeliveries />} />
                   <Route path="blog" element={<AdminBlog />} />
                   <Route path="faqs" element={<AdminFAQs />} />
                   <Route path="reviews" element={<AdminReviews />} />
@@ -107,8 +116,10 @@ const App = () => (
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              <ChatWidget />
             </BrowserRouter>
           </TooltipProvider>
+          </NotificationsProvider>
         </WishlistProvider>
       </CartProvider>
     </AuthProvider>

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { toast } from "sonner";
+import { trackEvent } from "@/lib/analytics";
 
 interface CartItem {
   id: string;
@@ -66,12 +67,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const addToCart = async (productId: string, quantity = 1) => {
     if (!user) { toast.error("Please login to add items to cart"); return; }
+    const product = items.find(i => i.product_id === productId)?.product;
     const existing = items.find(i => i.product_id === productId);
     if (existing) {
       await supabase.from("cart_items").update({ quantity: existing.quantity + quantity }).eq("id", existing.id);
     } else {
       await supabase.from("cart_items").insert({ user_id: user.id, product_id: productId, quantity });
     }
+    trackEvent("add_to_cart", { currency: "INR", value: (product?.price || 0) * quantity, item_id: productId, quantity });
     toast.success("Added to cart!");
     await fetchCart();
   };
