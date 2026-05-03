@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Package, ShoppingCart, FileText, HelpCircle,
   ArrowLeft, Star, Gift, Image, Users, Settings, BarChart3, Archive, ClipboardList, Shield,
-  PackageOpen, ShoppingBag, Award, UserPlus, FolderTree, Heart, MapPin, MessageSquare
+  PackageOpen, ShoppingBag, Award, UserPlus, FolderTree, Heart, MapPin, MessageSquare, Truck
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
@@ -32,6 +32,7 @@ const sections = [
     label: "Sales",
     items: [
       { title: "Orders", url: "/admin/orders", icon: ShoppingCart },
+      { title: "Deliveries", url: "/admin/deliveries", icon: Truck },
       { title: "Customers", url: "/admin/customers", icon: Users },
       { title: "Coupons", url: "/admin/coupons", icon: Gift },
     ],
