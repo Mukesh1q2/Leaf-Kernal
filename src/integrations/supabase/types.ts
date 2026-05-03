@@ -403,6 +403,45 @@ export type Database = {
         }
         Relationships: []
       }
+      deliveries: {
+        Row: {
+          carrier: string | null
+          created_at: string
+          estimated_delivery: string | null
+          id: string
+          notes: string | null
+          order_id: string
+          status: string
+          timeline: Json
+          tracking_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          carrier?: string | null
+          created_at?: string
+          estimated_delivery?: string | null
+          id?: string
+          notes?: string | null
+          order_id: string
+          status?: string
+          timeline?: Json
+          tracking_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          carrier?: string | null
+          created_at?: string
+          estimated_delivery?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string
+          status?: string
+          timeline?: Json
+          tracking_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       faqs: {
         Row: {
           answer: string
@@ -518,6 +557,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string | null
+          message: string | null
+          metadata: Json | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message?: string | null
+          metadata?: Json | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message?: string | null
+          metadata?: Json | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       order_items: {
         Row: {
