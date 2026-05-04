@@ -316,6 +316,68 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          session_id: string | null
+          title: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          session_id?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          session_id?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_inquiries: {
         Row: {
           created_at: string
@@ -1045,6 +1107,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_activity: {
+        Row: {
+          activity_type: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          product_id: string | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          product_id?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          product_id?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -1100,6 +1192,102 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_frequently_bought_together: {
+        Args: { p_limit?: number; p_product_id: string }
+        Returns: {
+          badge: string | null
+          benefits: string | null
+          category_id: string | null
+          created_at: string
+          description: string | null
+          gallery_urls: string[] | null
+          how_to_use: string | null
+          id: string
+          image_url: string | null
+          ingredients: string | null
+          is_active: boolean | null
+          is_featured: boolean | null
+          name: string
+          original_price: number | null
+          price: number
+          rating: number | null
+          review_count: number | null
+          short_description: string | null
+          slug: string
+          stock_quantity: number | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_recommended_products: {
+        Args: { p_limit?: number; p_user_id: string }
+        Returns: {
+          badge: string | null
+          benefits: string | null
+          category_id: string | null
+          created_at: string
+          description: string | null
+          gallery_urls: string[] | null
+          how_to_use: string | null
+          id: string
+          image_url: string | null
+          ingredients: string | null
+          is_active: boolean | null
+          is_featured: boolean | null
+          name: string
+          original_price: number | null
+          price: number
+          rating: number | null
+          review_count: number | null
+          short_description: string | null
+          slug: string
+          stock_quantity: number | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_trending_products: {
+        Args: { p_limit?: number }
+        Returns: {
+          badge: string | null
+          benefits: string | null
+          category_id: string | null
+          created_at: string
+          description: string | null
+          gallery_urls: string[] | null
+          how_to_use: string | null
+          id: string
+          image_url: string | null
+          ingredients: string | null
+          is_active: boolean | null
+          is_featured: boolean | null
+          name: string
+          original_price: number | null
+          price: number
+          rating: number | null
+          review_count: number | null
+          short_description: string | null
+          slug: string
+          stock_quantity: number | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
