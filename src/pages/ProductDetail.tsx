@@ -6,6 +6,8 @@ import { useWishlist } from "@/contexts/WishlistContext";
 import { Star, ShoppingBag, Heart, Minus, Plus, ChevronRight, Truck, Shield, RotateCcw } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { FrequentlyBoughtTogether } from "@/components/RecommendationWidgets";
+import { trackActivity } from "@/lib/activity";
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -23,6 +25,7 @@ const ProductDetail = () => {
       const { data } = await supabase.from("products").select("*").eq("slug", slug).single();
       if (data) {
         setProduct(data);
+        trackActivity("view", data.id, { slug: data.slug });
         const { data: related } = await supabase.from("products").select("*").eq("category_id", data.category_id).neq("id", data.id).limit(4);
         setRelatedProducts(related || []);
       }
@@ -182,6 +185,8 @@ const ProductDetail = () => {
               </div>
             </div>
           )}
+
+          <FrequentlyBoughtTogether productId={product.id} />
         </div>
       </main>
       <Footer />

@@ -7,6 +7,7 @@ import Testimonials from "@/components/Testimonials";
 import Newsletter from "@/components/Newsletter";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import { TrendingProducts, RecommendedForYou } from "@/components/RecommendationWidgets";
 
 const Index = () => {
   return (
@@ -16,6 +17,8 @@ const Index = () => {
         <HeroSection />
         <HealthConcerns />
         <BestSellers />
+        <RecommendedForYou />
+        <TrendingProducts />
         <StatsSection />
         <Testimonials />
         <Newsletter />

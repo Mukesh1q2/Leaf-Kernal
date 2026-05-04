@@ -1,24 +1,60 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageCircle, X, Send, Loader2 } from "lucide-react";
+import { MessageCircle, X, Send, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const CONV_KEY = "lk_chat_conv_id";
+const SESSION_KEY = "lk_session_id";
+
+function getSessionId() {
+  let s = localStorage.getItem(SESSION_KEY);
+  if (!s) { s = crypto.randomUUID(); localStorage.setItem(SESSION_KEY, s); }
+  return s;
+}
+
+const WELCOME: Msg = { role: "assistant", content: "Hi! I'm **Leafy** 🌿 — your wellness assistant. Ask me about products, ingredients, recipes, or your **order status** (just share your order ID)." };
 
 const ChatWidget = () => {
+  const { user, session } = useAuth();
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", content: "Hi! I'm Leafy 🌿 — your wellness assistant. Ask me about products, recipes, or your order!" },
-  ]);
+  const [messages, setMessages] = useState<Msg[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [convId, setConvId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Restore conversation on mount / user change
+  useEffect(() => {
+    const stored = localStorage.getItem(CONV_KEY);
+    if (!stored) return;
+    setConvId(stored);
+    (async () => {
+      const { data } = await supabase
+        .from("chat_messages")
+        .select("role, content")
+        .eq("conversation_id", stored)
+        .order("created_at");
+      if (data && data.length > 0) {
+        setMessages([WELCOME, ...data.filter(m => m.role === "user" || m.role === "assistant").map(m => ({ role: m.role as "user" | "assistant", content: m.content }))]);
+      }
+    })();
+  }, [user?.id]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
+
+  const reset = () => {
+    localStorage.removeItem(CONV_KEY);
+    setConvId(null);
+    setMessages([WELCOME]);
+  };
 
   const send = async () => {
     const text = input.trim();
@@ -29,54 +65,31 @@ const ChatWidget = () => {
     setInput("");
     setLoading(true);
 
-    let assistantSoFar = "";
-    let assistantStarted = false;
-    const upsert = (chunk: string) => {
-      assistantSoFar += chunk;
-      setMessages((prev) => {
-        if (assistantStarted) {
-          return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantSoFar } : m);
-        }
-        assistantStarted = true;
-        return [...prev, { role: "assistant", content: assistantSoFar }];
-      });
-    };
-
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      headers.Authorization = `Bearer ${token}`;
+
       const resp = await fetch(CHAT_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ messages: next.slice(-12) }),
+        headers,
+        body: JSON.stringify({
+          messages: next.slice(-12).map(m => ({ role: m.role, content: m.content })),
+          conversation_id: convId,
+          session_id: getSessionId(),
+        }),
       });
 
-      if (resp.status === 429) { toast.error("Too many messages — try again in a moment."); setLoading(false); return; }
-      if (resp.status === 402) { toast.error("AI temporarily unavailable."); setLoading(false); return; }
-      if (!resp.ok || !resp.body) { toast.error("Chat failed. Please try again."); setLoading(false); return; }
+      if (resp.status === 429) { toast.error("Too many messages — try again in a moment."); return; }
+      if (resp.status === 402) { toast.error("AI temporarily unavailable."); return; }
+      if (!resp.ok) { toast.error("Chat failed. Please try again."); return; }
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = ""; let done = false;
-      while (!done) {
-        const { done: d, value } = await reader.read();
-        if (d) break;
-        buf += decoder.decode(value, { stream: true });
-        let idx: number;
-        while ((idx = buf.indexOf("\n")) !== -1) {
-          let line = buf.slice(0, idx); buf = buf.slice(idx + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (!line.startsWith("data: ")) continue;
-          const json = line.slice(6).trim();
-          if (json === "[DONE]") { done = true; break; }
-          try {
-            const parsed = JSON.parse(json);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) upsert(content);
-          } catch { buf = line + "\n" + buf; break; }
-        }
+      const data = await resp.json();
+      if (data.conversation_id && data.conversation_id !== convId) {
+        setConvId(data.conversation_id);
+        localStorage.setItem(CONV_KEY, data.conversation_id);
       }
+      setMessages(prev => [...prev, { role: "assistant", content: data.message || "(no reply)" }]);
     } catch (e) {
       console.error(e);
       toast.error("Connection error");
@@ -101,19 +114,28 @@ const ChatWidget = () => {
           <div className="flex items-center justify-between p-3 bg-primary text-primary-foreground">
             <div>
               <h4 className="font-semibold text-sm">Leafy 🌿</h4>
-              <p className="text-[11px] opacity-80">Your wellness assistant</p>
+              <p className="text-[11px] opacity-80">Wellness assistant • Live product & order lookup</p>
             </div>
-            <button onClick={() => setOpen(false)} className="hover:opacity-70" aria-label="Close"><X size={18} /></button>
+            <div className="flex items-center gap-2">
+              <button onClick={reset} className="hover:opacity-70" aria-label="New chat" title="New chat"><RotateCcw size={16} /></button>
+              <button onClick={() => setOpen(false)} className="hover:opacity-70" aria-label="Close"><X size={18} /></button>
+            </div>
           </div>
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-secondary text-secondary-foreground" : "bg-muted text-foreground"}`}>
-                  {m.content || <Loader2 className="h-4 w-4 animate-spin" />}
+                <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === "user" ? "bg-secondary text-secondary-foreground" : "bg-muted text-foreground"}`}>
+                  {m.role === "assistant" ? (
+                    <div className="prose prose-sm max-w-none [&_a]:text-secondary [&_a]:underline [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1">
+                      <ReactMarkdown>{m.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <span className="whitespace-pre-wrap">{m.content}</span>
+                  )}
                 </div>
               </div>
             ))}
-            {loading && messages[messages.length - 1]?.role === "user" && (
+            {loading && (
               <div className="flex justify-start"><div className="bg-muted rounded-2xl px-3 py-2"><Loader2 className="h-4 w-4 animate-spin" /></div></div>
             )}
           </div>
