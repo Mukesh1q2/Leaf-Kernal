@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/analytics";
+import { trackActivity } from "@/lib/activity";
 
 interface CartItem {
   id: string;
@@ -75,6 +76,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       await supabase.from("cart_items").insert({ user_id: user.id, product_id: productId, quantity });
     }
     trackEvent("add_to_cart", { currency: "INR", value: (product?.price || 0) * quantity, item_id: productId, quantity });
+    trackActivity("add_to_cart", productId, { quantity });
     toast.success("Added to cart!");
     await fetchCart();
   };
