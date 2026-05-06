@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PincodeChecker from "@/components/PincodeChecker";
+import { useLoyaltyBalance, useLoyaltySettings, computeMaxRedeemable, pointsToRupees } from "@/lib/loyalty";
+import { Star } from "lucide-react";
 
 declare global {
   interface Window {
@@ -24,6 +26,9 @@ const Cart = () => {
   const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number; type: string } | null>(null);
+  const { balance: loyaltyBalance, tier } = useLoyaltyBalance();
+  const loyaltySettings = useLoyaltySettings();
+  const [redeemPoints, setRedeemPoints] = useState(0);
 
   const shipping = subtotal >= 999 ? 0 : 79;
   const discount = appliedCoupon
@@ -31,7 +36,9 @@ const Cart = () => {
       ? Math.round(subtotal * appliedCoupon.discount / 100)
       : appliedCoupon.discount
     : 0;
-  const total = subtotal + shipping - discount;
+  const maxRedeemable = computeMaxRedeemable(loyaltyBalance, subtotal, loyaltySettings);
+  const loyaltyDiscount = pointsToRupees(redeemPoints, loyaltySettings.redeemRate);
+  const total = Math.max(subtotal + shipping - discount - loyaltyDiscount, 0);
 
   const applyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -104,6 +111,14 @@ const Cart = () => {
       if (!loaded) throw new Error("Failed to load payment gateway");
 
       const { data, error } = await supabase.functions.invoke("create-razorpay-order", {});
+      // Pass redeem points
+      const { data: dataR, error: errorR } = await supabase.functions.invoke("create-razorpay-order", {
+        body: { redeem_points: redeemPoints },
+      });
+      void data; void error;
+      if (errorR) throw errorR;
+      if (dataR?.error) throw new Error(dataR.error);
+      const finalData = dataR;
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
