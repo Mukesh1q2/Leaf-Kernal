@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Search, ShoppingBag, User, Menu, X, ChevronDown, Shield } from "lucide-react";
+import { Search, ShoppingBag, User, Menu, X, ChevronDown, Shield, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import SearchDialog from "@/components/SearchDialog";
 import NotificationBell from "@/components/NotificationBell";
+import { useLoyaltyBalance } from "@/lib/loyalty";
 import logo from "@/assets/logo.png";
 
 const navLinks = [
@@ -46,6 +47,7 @@ const Header = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useAuth();
   const { itemCount } = useCart();
+  const { balance: loyaltyBalance } = useLoyaltyBalance();
 
   // Cmd+K shortcut
   useEffect(() => {
@@ -106,6 +108,12 @@ const Header = () => {
               <Search size={20} />
             </button>
             <NotificationBell />
+            {user && loyaltyBalance > 0 && (
+              <Link to="/loyalty" className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-secondary/10 hover:bg-secondary/20 transition-colors text-xs font-semibold text-secondary" title="Loyalty points">
+                <Sparkles size={12} />
+                {loyaltyBalance}
+              </Link>
+            )}
             {isAdmin && (
               <Link to="/admin" className="p-2 text-secondary hover:text-primary transition-colors" aria-label="Admin" title="Admin Dashboard">
                 <Shield size={20} />
