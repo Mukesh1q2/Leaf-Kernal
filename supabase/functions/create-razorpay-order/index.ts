@@ -37,6 +37,9 @@ serve(async (req) => {
     if (cartError) throw cartError;
     if (!cartItems || cartItems.length === 0) throw new Error("Cart is empty");
 
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const redeemPoints = Math.max(0, parseInt(body?.redeem_points ?? 0, 10) || 0);
+
     let subtotal = 0;
     for (const item of cartItems) {
       const product = (item as any).products;
@@ -45,7 +48,27 @@ serve(async (req) => {
     }
 
     const shipping = subtotal >= 999 ? 0 : 79;
-    const total = subtotal + shipping;
+
+    // Loyalty redemption (server-validated)
+    let loyaltyDiscount = 0;
+    let loyaltyPointsApplied = 0;
+    if (redeemPoints > 0) {
+      const { data: settings } = await supabase
+        .from("site_settings").select("key,value")
+        .in("key", ["loyalty_redeem_rate", "loyalty_max_redeem_pct"]);
+      const map = new Map((settings || []).map((r: any) => [r.key, Number(r.value)]));
+      const rate = map.get("loyalty_redeem_rate") || 10;
+      const maxPct = map.get("loyalty_max_redeem_pct") || 50;
+      const maxPoints = Math.floor((subtotal * maxPct / 100) * rate);
+
+      const { data: bal } = await supabase
+        .from("loyalty_balances").select("total_points").eq("user_id", user.id).maybeSingle();
+      const balance = (bal as any)?.total_points || 0;
+      loyaltyPointsApplied = Math.min(redeemPoints, maxPoints, balance);
+      loyaltyDiscount = Math.round((loyaltyPointsApplied / Math.max(rate, 1)) * 100) / 100;
+    }
+
+    const total = Math.max(subtotal + shipping - loyaltyDiscount, 0);
 
     // Create pending order in DB
     const { data: order, error: orderError } = await supabase
@@ -56,11 +79,25 @@ serve(async (req) => {
         shipping,
         total,
         status: "pending",
+        loyalty_points_redeemed: loyaltyPointsApplied,
+        loyalty_discount: loyaltyDiscount,
+        discount: loyaltyDiscount,
       })
       .select()
       .single();
 
     if (orderError) throw orderError;
+
+    // Deduct points (ledger entry — balance trigger updates)
+    if (loyaltyPointsApplied > 0) {
+      await supabase.from("loyalty_points").insert({
+        user_id: user.id,
+        points: -loyaltyPointsApplied,
+        type: "redeem",
+        order_id: order.id,
+        description: "Redeemed at checkout",
+      });
+    }
 
     // Create order items
     const orderItems = cartItems.map((item: any) => ({
