@@ -6,30 +6,30 @@ import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, TrendingUp, ArrowDown, ArrowUp } from "lucide-react";
+import { Star, TrendingUp, ArrowDown, ArrowUp, Crown, Award } from "lucide-react";
 import { format } from "date-fns";
+import { useLoyaltyBalance, useLoyaltySettings, pointsToRupees } from "@/lib/loyalty";
 
 const LoyaltyPoints = () => {
   const { user } = useAuth();
-  const [balance, setBalance] = useState(0);
+  const { balance, lifetime, tier } = useLoyaltyBalance();
+  const settings = useLoyaltySettings();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     const load = async () => {
-      const [{ data: bal }, { data: hist }] = await Promise.all([
-        supabase.from("loyalty_balances").select("total_points").eq("user_id", user.id).single(),
-        supabase.from("loyalty_points").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50),
-      ]);
-      setBalance(bal?.total_points || 0);
+      const { data: hist } = await supabase.from("loyalty_points").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
       setHistory(hist || []);
       setLoading(false);
     };
     load();
   }, [user]);
 
-  const pointsValue = Math.floor(balance / 10); // 10 points = ₹1
+  const pointsValue = pointsToRupees(balance, settings.redeemRate);
+  const nextTier = tier.name === "Bronze" ? { name: "Silver", min: settings.silverMin } : tier.name === "Silver" ? { name: "Gold", min: settings.goldMin } : null;
+  const tierIcon = tier.name === "Gold" ? <Crown className="h-5 w-5" /> : tier.name === "Silver" ? <Award className="h-5 w-5" /> : <Star className="h-5 w-5" />;
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,12 +55,24 @@ const LoyaltyPoints = () => {
             {/* Balance card */}
             <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
               <CardContent className="py-8 text-center">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/15 rounded-full text-xs mb-3">
+                  {tierIcon}
+                  <span className="font-medium">{tier.name} Tier · {tier.multiplier}x earnings</span>
+                </div>
                 <p className="text-sm opacity-80 mb-1">Available Points</p>
                 <div className="text-5xl font-bold mb-2">{balance}</div>
                 <p className="text-sm opacity-80">Worth ₹{pointsValue} in discounts</p>
+                {nextTier && (
+                  <div className="mt-4 max-w-xs mx-auto">
+                    <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                      <div className="h-full bg-white" style={{ width: `${Math.min(100, (lifetime / nextTier.min) * 100)}%` }} />
+                    </div>
+                    <p className="text-xs opacity-80 mt-1">{nextTier.min - lifetime} pts to {nextTier.name}</p>
+                  </div>
+                )}
                 <div className="mt-4 flex justify-center gap-4 text-xs opacity-70">
-                  <span>🛒 Earn 1 point per ₹10 spent</span>
-                  <span>💰 Redeem 10 points = ₹1 off</span>
+                  <span>🛒 1 pt per ₹{settings.earnPerRupees}</span>
+                  <span>💰 {settings.redeemRate} pts = ₹1 off</span>
                 </div>
               </CardContent>
             </Card>

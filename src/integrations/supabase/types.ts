@@ -294,7 +294,9 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_url: string | null
           name: string
+          parent_id: string | null
           slug: string
           sort_order: number | null
         }
@@ -302,7 +304,9 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name: string
+          parent_id?: string | null
           slug: string
           sort_order?: number | null
         }
@@ -310,11 +314,21 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name?: string
+          parent_id?: string | null
           slug?: string
           sort_order?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       chat_conversations: {
         Row: {
@@ -566,16 +580,19 @@ export type Database = {
       }
       loyalty_balances: {
         Row: {
+          lifetime_points: number
           total_points: number | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          lifetime_points?: number
           total_points?: number | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          lifetime_points?: number
           total_points?: number | null
           updated_at?: string | null
           user_id?: string
@@ -710,6 +727,8 @@ export type Database = {
           created_at: string
           discount: number | null
           id: string
+          loyalty_discount: number
+          loyalty_points_redeemed: number
           shipping: number | null
           status: string
           stripe_session_id: string | null
@@ -723,6 +742,8 @@ export type Database = {
           created_at?: string
           discount?: number | null
           id?: string
+          loyalty_discount?: number
+          loyalty_points_redeemed?: number
           shipping?: number | null
           status?: string
           stripe_session_id?: string | null
@@ -736,6 +757,8 @@ export type Database = {
           created_at?: string
           discount?: number | null
           id?: string
+          loyalty_discount?: number
+          loyalty_points_redeemed?: number
           shipping?: number | null
           status?: string
           stripe_session_id?: string | null
@@ -1192,6 +1215,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_loyalty: {
+        Args: { p_points: number; p_reason: string; p_user_id: string }
+        Returns: undefined
+      }
       get_frequently_bought_together: {
         Args: { p_limit?: number; p_product_id: string }
         Returns: {
@@ -1288,12 +1315,24 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_user_tier: {
+        Args: { p_user_id: string }
+        Returns: {
+          lifetime: number
+          multiplier: number
+          tier: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      redeem_loyalty_points: {
+        Args: { p_order_id: string; p_points: number }
+        Returns: Json
       }
     }
     Enums: {

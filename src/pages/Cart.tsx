@@ -8,6 +8,9 @@ import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PincodeChecker from "@/components/PincodeChecker";
+import CartBundleUpsell from "@/components/CartBundleUpsell";
+import { useLoyaltyBalance, useLoyaltySettings, computeMaxRedeemable, pointsToRupees } from "@/lib/loyalty";
+import { Star } from "lucide-react";
 
 declare global {
   interface Window {
@@ -24,6 +27,9 @@ const Cart = () => {
   const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number; type: string } | null>(null);
+  const { balance: loyaltyBalance, tier } = useLoyaltyBalance();
+  const loyaltySettings = useLoyaltySettings();
+  const [redeemPoints, setRedeemPoints] = useState(0);
 
   const shipping = subtotal >= 999 ? 0 : 79;
   const discount = appliedCoupon
@@ -31,7 +37,9 @@ const Cart = () => {
       ? Math.round(subtotal * appliedCoupon.discount / 100)
       : appliedCoupon.discount
     : 0;
-  const total = subtotal + shipping - discount;
+  const maxRedeemable = computeMaxRedeemable(loyaltyBalance, subtotal, loyaltySettings);
+  const loyaltyDiscount = pointsToRupees(redeemPoints, loyaltySettings.redeemRate);
+  const total = Math.max(subtotal + shipping - discount - loyaltyDiscount, 0);
 
   const applyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -103,7 +111,9 @@ const Cart = () => {
       const loaded = await loadRazorpayScript();
       if (!loaded) throw new Error("Failed to load payment gateway");
 
-      const { data, error } = await supabase.functions.invoke("create-razorpay-order", {});
+      const { data, error } = await supabase.functions.invoke("create-razorpay-order", {
+        body: { redeem_points: redeemPoints },
+      });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
@@ -194,6 +204,7 @@ const Cart = () => {
                   </div>
                 </div>
               ))}
+              <CartBundleUpsell />
             </div>
 
             <div className="bg-muted rounded-xl p-6 h-fit sticky top-24">
@@ -234,10 +245,40 @@ const Cart = () => {
                 {discount > 0 && (
                   <div className="flex justify-between text-primary"><span>Discount</span><span className="font-medium">-₹{discount.toFixed(2)}</span></div>
                 )}
+                {loyaltyDiscount > 0 && (
+                  <div className="flex justify-between text-primary"><span>Loyalty ({redeemPoints} pts)</span><span className="font-medium">-₹{loyaltyDiscount.toFixed(2)}</span></div>
+                )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span className="font-medium text-foreground">{shipping === 0 ? "FREE" : `₹${shipping}`}</span></div>
                 {shipping > 0 && <p className="text-xs text-secondary">Add ₹{(999 - subtotal).toFixed(0)} more for free shipping</p>}
                 <div className="border-t border-border pt-3 flex justify-between text-base"><span className="font-semibold text-foreground">Total</span><span className="font-bold text-foreground">₹{total.toFixed(2)}</span></div>
               </div>
+
+              {user && loyaltyBalance > 0 && (
+                <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Star size={14} className="text-secondary fill-secondary" />
+                      <span className="font-medium">Use Loyalty Points</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-secondary/20 text-secondary">{tier.name}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{loyaltyBalance} avail.</span>
+                  </div>
+                  {maxRedeemable > 0 ? (
+                    <>
+                      <input type="range" min={0} max={maxRedeemable} step={10} value={redeemPoints}
+                        onChange={(e) => setRedeemPoints(Number(e.target.value))}
+                        className="w-full accent-primary"
+                      />
+                      <div className="flex justify-between text-xs mt-1">
+                        <span className="text-muted-foreground">{redeemPoints} pts → ₹{loyaltyDiscount.toFixed(2)}</span>
+                        <button type="button" onClick={() => setRedeemPoints(maxRedeemable)} className="text-primary font-medium hover:underline">Max ({maxRedeemable})</button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Add more items to unlock redemption.</p>
+                  )}
+                </div>
+              )}
               <button
                 onClick={handleCheckout}
                 disabled={checkoutLoading}
