@@ -204,6 +204,7 @@ const Cart = () => {
                   </div>
                 </div>
               ))}
+              <CartBundleUpsell />
             </div>
 
             <div className="bg-muted rounded-xl p-6 h-fit sticky top-24">
