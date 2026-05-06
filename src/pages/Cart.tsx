@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PincodeChecker from "@/components/PincodeChecker";
+import CartBundleUpsell from "@/components/CartBundleUpsell";
 import { useLoyaltyBalance, useLoyaltySettings, computeMaxRedeemable, pointsToRupees } from "@/lib/loyalty";
 import { Star } from "lucide-react";
 
