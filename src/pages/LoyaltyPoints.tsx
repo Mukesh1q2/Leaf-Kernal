@@ -6,30 +6,30 @@ import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, TrendingUp, ArrowDown, ArrowUp } from "lucide-react";
+import { Star, TrendingUp, ArrowDown, ArrowUp, Crown, Award } from "lucide-react";
 import { format } from "date-fns";
+import { useLoyaltyBalance, useLoyaltySettings, pointsToRupees } from "@/lib/loyalty";
 
 const LoyaltyPoints = () => {
   const { user } = useAuth();
-  const [balance, setBalance] = useState(0);
+  const { balance, lifetime, tier } = useLoyaltyBalance();
+  const settings = useLoyaltySettings();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     const load = async () => {
-      const [{ data: bal }, { data: hist }] = await Promise.all([
-        supabase.from("loyalty_balances").select("total_points").eq("user_id", user.id).single(),
-        supabase.from("loyalty_points").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50),
-      ]);
-      setBalance(bal?.total_points || 0);
+      const { data: hist } = await supabase.from("loyalty_points").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
       setHistory(hist || []);
       setLoading(false);
     };
     load();
   }, [user]);
 
-  const pointsValue = Math.floor(balance / 10); // 10 points = ₹1
+  const pointsValue = pointsToRupees(balance, settings.redeemRate);
+  const nextTier = tier.name === "Bronze" ? { name: "Silver", min: settings.silverMin } : tier.name === "Silver" ? { name: "Gold", min: settings.goldMin } : null;
+  const tierIcon = tier.name === "Gold" ? <Crown className="h-5 w-5" /> : tier.name === "Silver" ? <Award className="h-5 w-5" /> : <Star className="h-5 w-5" />;
 
   return (
     <div className="min-h-screen bg-background">
