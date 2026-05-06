@@ -243,10 +243,40 @@ const Cart = () => {
                 {discount > 0 && (
                   <div className="flex justify-between text-primary"><span>Discount</span><span className="font-medium">-₹{discount.toFixed(2)}</span></div>
                 )}
+                {loyaltyDiscount > 0 && (
+                  <div className="flex justify-between text-primary"><span>Loyalty ({redeemPoints} pts)</span><span className="font-medium">-₹{loyaltyDiscount.toFixed(2)}</span></div>
+                )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span className="font-medium text-foreground">{shipping === 0 ? "FREE" : `₹${shipping}`}</span></div>
                 {shipping > 0 && <p className="text-xs text-secondary">Add ₹{(999 - subtotal).toFixed(0)} more for free shipping</p>}
                 <div className="border-t border-border pt-3 flex justify-between text-base"><span className="font-semibold text-foreground">Total</span><span className="font-bold text-foreground">₹{total.toFixed(2)}</span></div>
               </div>
+
+              {user && loyaltyBalance > 0 && (
+                <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Star size={14} className="text-secondary fill-secondary" />
+                      <span className="font-medium">Use Loyalty Points</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-secondary/20 text-secondary">{tier.name}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{loyaltyBalance} avail.</span>
+                  </div>
+                  {maxRedeemable > 0 ? (
+                    <>
+                      <input type="range" min={0} max={maxRedeemable} step={10} value={redeemPoints}
+                        onChange={(e) => setRedeemPoints(Number(e.target.value))}
+                        className="w-full accent-primary"
+                      />
+                      <div className="flex justify-between text-xs mt-1">
+                        <span className="text-muted-foreground">{redeemPoints} pts → ₹{loyaltyDiscount.toFixed(2)}</span>
+                        <button type="button" onClick={() => setRedeemPoints(maxRedeemable)} className="text-primary font-medium hover:underline">Max ({maxRedeemable})</button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Add more items to unlock redemption.</p>
+                  )}
+                </div>
+              )}
               <button
                 onClick={handleCheckout}
                 disabled={checkoutLoading}
