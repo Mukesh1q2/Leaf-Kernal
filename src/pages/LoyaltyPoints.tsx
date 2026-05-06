@@ -55,12 +55,24 @@ const LoyaltyPoints = () => {
             {/* Balance card */}
             <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
               <CardContent className="py-8 text-center">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/15 rounded-full text-xs mb-3">
+                  {tierIcon}
+                  <span className="font-medium">{tier.name} Tier · {tier.multiplier}x earnings</span>
+                </div>
                 <p className="text-sm opacity-80 mb-1">Available Points</p>
                 <div className="text-5xl font-bold mb-2">{balance}</div>
                 <p className="text-sm opacity-80">Worth ₹{pointsValue} in discounts</p>
+                {nextTier && (
+                  <div className="mt-4 max-w-xs mx-auto">
+                    <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                      <div className="h-full bg-white" style={{ width: `${Math.min(100, (lifetime / nextTier.min) * 100)}%` }} />
+                    </div>
+                    <p className="text-xs opacity-80 mt-1">{nextTier.min - lifetime} pts to {nextTier.name}</p>
+                  </div>
+                )}
                 <div className="mt-4 flex justify-center gap-4 text-xs opacity-70">
-                  <span>🛒 Earn 1 point per ₹10 spent</span>
-                  <span>💰 Redeem 10 points = ₹1 off</span>
+                  <span>🛒 1 pt per ₹{settings.earnPerRupees}</span>
+                  <span>💰 {settings.redeemRate} pts = ₹1 off</span>
                 </div>
               </CardContent>
             </Card>
