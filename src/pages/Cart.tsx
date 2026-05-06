@@ -110,15 +110,9 @@ const Cart = () => {
       const loaded = await loadRazorpayScript();
       if (!loaded) throw new Error("Failed to load payment gateway");
 
-      const { data, error } = await supabase.functions.invoke("create-razorpay-order", {});
-      // Pass redeem points
-      const { data: dataR, error: errorR } = await supabase.functions.invoke("create-razorpay-order", {
+      const { data, error } = await supabase.functions.invoke("create-razorpay-order", {
         body: { redeem_points: redeemPoints },
       });
-      void data; void error;
-      if (errorR) throw errorR;
-      if (dataR?.error) throw new Error(dataR.error);
-      const finalData = dataR;
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
