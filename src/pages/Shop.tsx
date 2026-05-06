@@ -20,9 +20,11 @@ interface Product {
   rating: number | null;
   review_count: number | null;
   category_id: string | null;
+  stock_quantity?: number | null;
+  created_at?: string;
 }
 
-interface Category { id: string; name: string; slug: string; }
+interface Category { id: string; name: string; slug: string; parent_id?: string | null; }
 interface HealthConcern { id: string; name: string; slug: string; }
 
 const Shop = () => {
@@ -35,6 +37,9 @@ const Shop = () => {
   const [selectedConcern, setSelectedConcern] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState("featured");
   const [showFilters, setShowFilters] = useState(false);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
+  const [minRating, setMinRating] = useState(0);
+  const [inStockOnly, setInStockOnly] = useState(false);
   const [searchParams] = useSearchParams();
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
@@ -78,12 +83,30 @@ const Shop = () => {
     fetchConcernProducts();
   }, [selectedConcern]);
 
+  // Build child-category map for hierarchy match
+  const childMap = new Map<string, string[]>();
+  categories.forEach(c => {
+    if (c.parent_id) {
+      const arr = childMap.get(c.parent_id) || [];
+      arr.push(c.id);
+      childMap.set(c.parent_id, arr);
+    }
+  });
+
   let filtered = [...products];
-  if (selectedCategory) filtered = filtered.filter(p => p.category_id === selectedCategory);
+  if (selectedCategory) {
+    const ids = new Set([selectedCategory, ...(childMap.get(selectedCategory) || [])]);
+    filtered = filtered.filter(p => p.category_id && ids.has(p.category_id));
+  }
   if (selectedConcern && concernProductIds) filtered = filtered.filter(p => concernProductIds.has(p.id));
+  filtered = filtered.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1]);
+  if (minRating > 0) filtered = filtered.filter(p => (p.rating || 0) >= minRating);
+  if (inStockOnly) filtered = filtered.filter(p => (p.stock_quantity ?? 0) > 0);
   if (sortBy === "price-low") filtered.sort((a, b) => a.price - b.price);
   else if (sortBy === "price-high") filtered.sort((a, b) => b.price - a.price);
   else if (sortBy === "rating") filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  else if (sortBy === "newest") filtered.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+  else if (sortBy === "popularity") filtered.sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
 
   return (
     <div className="min-h-screen bg-background">
@@ -105,6 +128,8 @@ const Shop = () => {
               <option value="price-low">Price: Low to High</option>
               <option value="price-high">Price: High to Low</option>
               <option value="rating">Top Rated</option>
+              <option value="popularity">Most Popular</option>
+              <option value="newest">New Arrivals</option>
             </select>
           </div>
 
@@ -143,6 +168,31 @@ const Shop = () => {
                     ))}
                   </div>
                 </div>
+
+                <div>
+                  <h4 className="font-heading font-semibold text-sm mb-3">Price Range</h4>
+                  <div className="flex gap-2 items-center">
+                    <input type="number" value={priceRange[0]} onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])} className="w-20 text-sm border border-border rounded px-2 py-1 bg-background" placeholder="Min" />
+                    <span className="text-muted-foreground">–</span>
+                    <input type="number" value={priceRange[1]} onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])} className="w-20 text-sm border border-border rounded px-2 py-1 bg-background" placeholder="Max" />
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-heading font-semibold text-sm mb-3">Min Rating</h4>
+                  <div className="flex gap-1">
+                    {[0, 3, 4, 4.5].map(r => (
+                      <button key={r} onClick={() => setMinRating(r)} className={`text-xs px-2 py-1 rounded-md ${minRating === r ? "bg-secondary text-secondary-foreground" : "bg-muted text-foreground hover:bg-muted/70"}`}>
+                        {r === 0 ? "Any" : `${r}★+`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} className="accent-primary" />
+                  In stock only
+                </label>
               </div>
             </aside>
 
