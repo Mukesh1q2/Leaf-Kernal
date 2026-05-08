@@ -29,6 +29,11 @@ const ChatWidget = () => {
   const [convId, setConvId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Notify other floating widgets (e.g. WhatsApp button) so they can move out of the way on mobile
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("leafy-chat-open", { detail: { open } }));
+  }, [open]);
+
   // Restore conversation on mount / user change
   useEffect(() => {
     const stored = localStorage.getItem(CONV_KEY);
