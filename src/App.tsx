@@ -53,6 +53,8 @@ import AdminDeliveries from "./pages/admin/AdminDeliveries";
 import ReferralProgram from "./pages/ReferralProgram";
 import LoyaltyPoints from "./pages/LoyaltyPoints";
 import TrackOrder from "./pages/TrackOrder";
+import Quiz from "./pages/Quiz";
+import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -87,6 +89,7 @@ const App = () => (
                 <Route path="/referral" element={<ReferralProgram />} />
                 <Route path="/loyalty" element={<LoyaltyPoints />} />
                 <Route path="/track/:orderId" element={<TrackOrder />} />
+                <Route path="/quiz" element={<Quiz />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<AdminDashboard />} />
@@ -113,6 +116,7 @@ const App = () => (
                   <Route path="health-concerns" element={<AdminHealthConcerns />} />
                   <Route path="pincodes" element={<AdminPincodes />} />
                   <Route path="inquiries" element={<AdminInquiries />} />
+                  <Route path="subscriptions" element={<AdminSubscriptions />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
