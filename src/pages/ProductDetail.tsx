@@ -3,11 +3,15 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
-import { Star, ShoppingBag, Heart, Minus, Plus, ChevronRight, Truck, Shield, RotateCcw } from "lucide-react";
+import { Star, ShoppingBag, Heart, Minus, Plus, ChevronRight, Truck, Shield, RotateCcw, RefreshCw, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { FrequentlyBoughtTogether } from "@/components/RecommendationWidgets";
 import { trackActivity } from "@/lib/activity";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSubscriptionDiscount, createSubscription } from "@/lib/subscriptions";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -18,6 +22,34 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const subDiscount = useSubscriptionDiscount();
+  const [subscribeMode, setSubscribeMode] = useState(false);
+  const [cadence, setCadence] = useState(30);
+  const [subSaving, setSubSaving] = useState(false);
+
+  const handleSubscribe = async () => {
+    if (!user) { navigate("/auth"); return; }
+    setSubSaving(true);
+    try {
+      await createSubscription({
+        userId: user.id,
+        productId: product.id,
+        quantity,
+        cadenceDays: cadence,
+        discountPct: subDiscount,
+      });
+      trackActivity("subscribe", product.id, { cadence, quantity });
+      toast({ title: "Subscription created!", description: `Renews every ${cadence} days. Manage it in My Account.` });
+      setSubscribeMode(false);
+    } catch (e: any) {
+      toast({ title: "Failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSubSaving(false);
+    }
+  };
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -129,6 +161,38 @@ const ProductDetail = () => {
                 >
                   <Heart size={20} className={isInWishlist(product.id) ? "fill-destructive text-destructive" : "text-foreground"} />
                 </button>
+              </div>
+
+              <div className="mt-4 border border-border rounded-xl p-4 bg-muted/40">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    <RefreshCw size={18} className="text-secondary mt-0.5" />
+                    <div>
+                      <div className="font-semibold text-sm text-foreground">Subscribe & Save {subDiscount}%</div>
+                      <div className="text-xs text-muted-foreground">Auto-deliver, pause anytime.</div>
+                    </div>
+                  </div>
+                  {!subscribeMode ? (
+                    <button onClick={() => setSubscribeMode(true)} className="text-xs font-semibold text-secondary hover:underline whitespace-nowrap">Set up</button>
+                  ) : (
+                    <button onClick={() => setSubscribeMode(false)} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+                  )}
+                </div>
+                {subscribeMode && (
+                  <div className="mt-3 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {[15, 30, 60, 90].map((d) => (
+                        <button key={d} onClick={() => setCadence(d)} className={`px-3 py-1.5 text-xs font-medium rounded-full border ${cadence === d ? "border-secondary bg-secondary text-secondary-foreground" : "border-border text-foreground hover:bg-muted"}`}>
+                          Every {d} days
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={handleSubscribe} disabled={subSaving} className="w-full inline-flex items-center justify-center gap-2 py-2.5 bg-secondary text-secondary-foreground text-sm font-semibold rounded-lg hover:bg-leaf transition-colors disabled:opacity-50">
+                      {subSaving ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                      Subscribe — Save ₹{Math.round((product.price * quantity * subDiscount) / 100)}/order
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-4 mt-8 pt-6 border-t border-border">

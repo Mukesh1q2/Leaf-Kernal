@@ -35,6 +35,7 @@ const navLinks = [
     ],
   },
   { label: "About", href: "/about" },
+  { label: "Quiz", href: "/quiz" },
   { label: "Blog", href: "/blog" },
   { label: "FAQ", href: "/faq" },
   { label: "Contact", href: "/contact" },

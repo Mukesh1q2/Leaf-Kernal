@@ -10,7 +10,7 @@ function getSessionId(): string {
   return sid;
 }
 
-export type ActivityType = "view" | "add_to_cart" | "purchase" | "search" | "wishlist";
+export type ActivityType = "view" | "add_to_cart" | "purchase" | "search" | "wishlist" | "quiz_complete" | "reorder" | "subscribe";
 
 export async function trackActivity(
   activity_type: ActivityType,

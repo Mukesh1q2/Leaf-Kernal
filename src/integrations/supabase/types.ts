@@ -1091,6 +1091,48 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriptions: {
+        Row: {
+          cadence_days: number
+          created_at: string
+          discount_pct: number
+          id: string
+          last_charge_at: string | null
+          next_charge_at: string
+          product_id: string
+          quantity: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cadence_days: number
+          created_at?: string
+          discount_pct?: number
+          id?: string
+          last_charge_at?: string | null
+          next_charge_at?: string
+          product_id: string
+          quantity?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cadence_days?: number
+          created_at?: string
+          discount_pct?: number
+          id?: string
+          last_charge_at?: string | null
+          next_charge_at?: string
+          product_id?: string
+          quantity?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       testimonials: {
         Row: {
           city: string | null
