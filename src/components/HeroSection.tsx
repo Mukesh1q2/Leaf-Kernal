@@ -40,6 +40,12 @@ const HeroSection = () => {
             >
               Shop by Goal
             </Link>
+            <Link
+              to="/quiz"
+              className="inline-flex items-center gap-2 px-8 py-3.5 bg-gold text-primary font-semibold rounded-lg hover:bg-gold-light transition-colors shadow-lg"
+            >
+              ✨ Take the 60s Quiz
+            </Link>
           </div>
         </motion.div>
       </div>
