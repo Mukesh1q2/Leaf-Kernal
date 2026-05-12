@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Package, Heart, MapPin, LogOut, Edit2, Save, Loader2, Trash2, Plus, Star } from "lucide-react";
+import { User, Package, Heart, MapPin, LogOut, Edit2, Save, Loader2, Trash2, Plus, Star, RefreshCw, Pause, Play, XCircle, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useMySubscriptions, updateSubscriptionStatus, skipNextCharge } from "@/lib/subscriptions";
+import { reorderFromOrder } from "@/lib/reorder";
+import { trackActivity } from "@/lib/activity";
 
 const emptyAddress = { full_name: "", phone: "", address_line1: "", address_line2: "", city: "", state: "", pincode: "", label: "Home", is_default: false };
 
@@ -14,6 +17,9 @@ const Account = () => {
   const { user, signOut } = useAuth();
   const { wishlistProducts, toggleWishlist } = useWishlist();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { subs, refresh: refreshSubs } = useMySubscriptions();
+  const [reordering, setReordering] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -119,9 +125,42 @@ const Account = () => {
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
     { id: "orders", label: "Orders", icon: Package },
+    { id: "subscriptions", label: "Subscriptions", icon: RefreshCw },
     { id: "wishlist", label: "Wishlist", icon: Heart },
     { id: "addresses", label: "Addresses", icon: MapPin },
   ];
+
+  const handleReorder = async (orderId: string) => {
+    if (!user) return;
+    setReordering(orderId);
+    try {
+      const r = await reorderFromOrder(orderId, user.id);
+      trackActivity("reorder", undefined, { orderId, ...r });
+      if (r.added > 0) {
+        toast({ title: `${r.added} item(s) added to cart`, description: r.skipped ? `${r.skipped} unavailable: ${r.unavailable.join(", ")}` : "Heading to your cart..." });
+        navigate("/cart");
+      } else {
+        toast({ title: "Nothing added", description: "All items unavailable.", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Reorder failed", description: e.message, variant: "destructive" });
+    } finally {
+      setReordering(null);
+    }
+  };
+
+  const handleSubAction = async (id: string, action: "pause" | "resume" | "cancel" | "skip", sub?: any) => {
+    try {
+      if (action === "pause") await updateSubscriptionStatus(id, "paused");
+      if (action === "resume") await updateSubscriptionStatus(id, "active");
+      if (action === "cancel") await updateSubscriptionStatus(id, "cancelled");
+      if (action === "skip" && sub) await skipNextCharge(id, sub.next_charge_at, sub.cadence_days);
+      toast({ title: "Subscription updated" });
+      refreshSubs();
+    } catch (e: any) {
+      toast({ title: "Failed", description: e.message, variant: "destructive" });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -192,14 +231,66 @@ const Account = () => {
                 ) : (
                   <div className="space-y-3">
                     {orders.map(order => (
-                      <div key={order.id} className="bg-background border border-border rounded-xl p-4 flex items-center justify-between">
+                      <div key={order.id} className="bg-background border border-border rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
                         <div>
                           <p className="font-medium text-foreground text-sm">Order #{order.id.slice(0, 8)}</p>
                           <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-foreground">₹{order.total}</p>
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${order.status === "delivered" ? "bg-leaf/10 text-secondary" : order.status === "cancelled" ? "bg-destructive/10 text-destructive" : "bg-gold-light text-accent-foreground"}`}>{order.status}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="font-bold text-foreground">₹{order.total}</p>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${order.status === "delivered" ? "bg-leaf/10 text-secondary" : order.status === "cancelled" ? "bg-destructive/10 text-destructive" : "bg-gold-light text-accent-foreground"}`}>{order.status}</span>
+                          </div>
+                          <button
+                            onClick={() => handleReorder(order.id)}
+                            disabled={reordering === order.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border border-border rounded-lg hover:bg-muted text-foreground disabled:opacity-50"
+                          >
+                            {reordering === order.id ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />} Reorder
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "subscriptions" && (
+              <div>
+                <h2 className="font-heading font-semibold text-lg text-foreground mb-4">My Subscriptions</h2>
+                {subs.length === 0 ? (
+                  <div className="text-center py-12 bg-muted rounded-xl">
+                    <RefreshCw size={40} className="text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">No active subscriptions</p>
+                    <Link to="/shop" className="text-secondary hover:underline mt-2 inline-block text-sm">Browse products to subscribe</Link>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {subs.map((s) => (
+                      <div key={s.id} className="bg-background border border-border rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-3">
+                          <img src={s.product?.image_url || "/placeholder.svg"} alt="" className="w-14 h-14 rounded-lg object-cover bg-muted" />
+                          <div>
+                            <Link to={`/product/${s.product?.slug}`} className="font-medium text-foreground hover:text-secondary text-sm">{s.product?.name}</Link>
+                            <p className="text-xs text-muted-foreground">{s.quantity} × every {s.cadence_days} days · {s.discount_pct}% off</p>
+                            <p className="text-xs text-muted-foreground">Next: {new Date(s.next_charge_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full mr-1 ${s.status === "active" ? "bg-leaf/15 text-secondary" : s.status === "paused" ? "bg-gold-light text-accent-foreground" : "bg-destructive/10 text-destructive"}`}>{s.status}</span>
+                          {s.status === "active" && (
+                            <>
+                              <button onClick={() => handleSubAction(s.id, "skip", s)} className="text-xs px-2 py-1 border border-border rounded hover:bg-muted">Skip next</button>
+                              <button onClick={() => handleSubAction(s.id, "pause")} className="p-1.5 hover:bg-muted rounded" title="Pause"><Pause size={14} /></button>
+                            </>
+                          )}
+                          {s.status === "paused" && (
+                            <button onClick={() => handleSubAction(s.id, "resume")} className="p-1.5 hover:bg-muted rounded" title="Resume"><Play size={14} /></button>
+                          )}
+                          {s.status !== "cancelled" && (
+                            <button onClick={() => handleSubAction(s.id, "cancel")} className="p-1.5 hover:bg-destructive/10 rounded text-destructive" title="Cancel"><XCircle size={14} /></button>
+                          )}
                         </div>
                       </div>
                     ))}
