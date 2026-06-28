@@ -20,6 +20,9 @@ const FAQ = () => {
           <h1 className="text-3xl md:text-4xl font-heading font-bold text-primary-foreground">Frequently Asked Questions</h1>
         </div>
         <div className="container py-12 max-w-3xl mx-auto">
+          {faqs.length === 0 && (
+            <div className="text-center text-muted-foreground py-12">Loading FAQs…</div>
+          )}
           <div className="space-y-3">
             {faqs.map(faq => (
               <div key={faq.id} className="border border-border rounded-xl overflow-hidden">
