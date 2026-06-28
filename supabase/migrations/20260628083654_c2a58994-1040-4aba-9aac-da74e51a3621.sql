@@ -1,0 +1,7 @@
+INSERT INTO public.faqs (question, answer, category, sort_order, is_active) VALUES
+ ('How long does shipping take?', 'We dispatch within 24-48 hours of order confirmation. Metro cities receive orders in 2-4 business days; the rest of India in 4-7 business days. You can track your shipment from your account.', 'Shipping & Delivery', 100, true),
+ ('What is your return and refund policy?', 'We accept returns within 7 days of delivery for unopened, sealed products. Refunds are processed to the original payment method within 5-7 business days of receiving the returned item.', 'Returns & Refunds', 101, true),
+ ('Are your products FSSAI certified and lab-tested?', 'Yes. Every Leaf & Kernel SKU is FSSAI licensed and batch-tested for heavy metals, microbial safety and pesticide residue. Certificates of Analysis are available on request.', 'Product Quality', 102, true),
+ ('Which payment methods do you support?', 'We accept UPI, all major credit & debit cards, net-banking, popular wallets and Cash on Delivery (COD) at serviceable pincodes.', 'Ordering & Payment', 103, true),
+ ('How do I take Ayurvedic powders and capsules?', 'Dosage varies by product — please refer to the "How to Use" section on each product page. As a general guide, take powders with warm water, milk or honey and capsules with water after meals.', 'Product Usage', 104, true)
+ON CONFLICT DO NOTHING;

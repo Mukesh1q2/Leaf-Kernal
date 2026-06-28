@@ -4,13 +4,13 @@ import heroImg from "@/assets/hero-superfoods.jpg";
 
 const HeroSection = () => {
   return (
-    <section className="relative overflow-hidden">
+    <section className="relative overflow-hidden max-h-[85vh] flex items-center">
       <div className="absolute inset-0">
         <img src={heroImg} alt="Ayurvedic superfoods flat lay" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-primary/85 via-primary/60 to-transparent" />
       </div>
 
-      <div className="container relative z-10 py-24 md:py-36 lg:py-44">
+      <div className="container relative z-10 py-16 md:py-20 lg:py-24">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}

@@ -1,9 +1,38 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Send } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Newsletter = () => {
   const [email, setEmail] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = email.trim();
+    if (!value) {
+      setError("Please enter your email address.");
+      return;
+    }
+    if (!EMAIL_RE.test(value)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    try {
+      await new Promise((r) => setTimeout(r, 500));
+      toast.success("You're subscribed! Welcome to the family 🌿");
+      setEmail("");
+    } catch {
+      toast.error("Subscription failed. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <section className="py-16 md:py-24">
@@ -23,22 +52,38 @@ const Newsletter = () => {
           </p>
 
           <form
-            onSubmit={(e) => e.preventDefault()}
+            onSubmit={handleSubmit}
+            noValidate
             className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
           >
-            <input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-secondary/50"
-            />
+            <div className="flex-1 text-left">
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (error) setError(null);
+                }}
+                aria-invalid={!!error}
+                className={`w-full px-4 py-3 rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${error ? "border-destructive focus:ring-destructive/40" : "border-border focus:ring-secondary/50"}`}
+              />
+              {error && <p className="text-xs text-destructive mt-1.5">{error}</p>}
+            </div>
             <button
               type="submit"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-forest-light transition-colors"
+              disabled={submitting}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-forest-light transition-colors disabled:opacity-60"
             >
-              Subscribe
-              <Send size={16} />
+              {submitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Subscribing...
+                </>
+              ) : (
+                <>
+                  Subscribe <Send size={16} />
+                </>
+              )}
             </button>
           </form>
           <p className="text-xs text-muted-foreground mt-3">No spam, unsubscribe anytime. 🌿</p>
