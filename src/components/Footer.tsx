@@ -2,6 +2,13 @@ import { Link } from "react-router-dom";
 import { Instagram, Facebook, Twitter, Youtube } from "lucide-react";
 import logoWhite from "@/assets/logo-white.png";
 
+const socials = [
+  { Icon: Instagram, url: "https://instagram.com/leafandkernel", label: "Instagram" },
+  { Icon: Facebook, url: "https://facebook.com/leafandkernel", label: "Facebook" },
+  { Icon: Twitter, url: "https://twitter.com/leafandkernel", label: "Twitter" },
+  { Icon: Youtube, url: "https://youtube.com/@leafandkernel", label: "YouTube" },
+];
+
 const footerLinks = {
   Shop: [
     { label: "Powders", to: "/shop?category=powders" },
@@ -46,12 +53,14 @@ const Footer = () => {
               Plant-powered superfoods rooted in Ayurveda, crafted for modern life.
             </p>
             <div className="flex gap-3">
-              {[Instagram, Facebook, Twitter, Youtube].map((Icon, i) => (
+              {socials.map(({ Icon, url, label }) => (
                 <a
-                  key={i}
-                  href="#"
+                  key={label}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-9 h-9 rounded-full bg-forest-light flex items-center justify-center hover:bg-secondary transition-colors"
-                  aria-label="Social media"
+                  aria-label={label}
                 >
                   <Icon size={16} />
                 </a>
@@ -75,9 +84,14 @@ const Footer = () => {
           ))}
         </div>
 
-        <div className="mt-12 pt-8 border-t border-forest-light flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm opacity-60">© 2026 Leaf & Kernel Superfoods Co. All rights reserved. | Design by <a href="https://theqbitlabs.com" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-100 transition-opacity">The Qbitlabs</a></p>
-          <div className="flex items-center gap-4 text-sm opacity-60">
+        <div className="mt-12 pt-8 border-t border-forest-light flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+          <p className="text-sm opacity-60 whitespace-normal break-words">
+            © 2026 Leaf &amp; Kernel Superfoods Co. All rights reserved. | Design by{" "}
+            <a href="https://theqbitlabs.com" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-100 transition-opacity whitespace-nowrap">
+              The Qbitlabs
+            </a>
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm opacity-60">
             <span>FSSAI Licensed</span>
             <span>•</span>
             <span>100% Organic Certified</span>
