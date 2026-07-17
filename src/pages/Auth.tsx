@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
@@ -23,6 +23,13 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rawNext = searchParams.get("next");
+  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  const goNext = () => {
+    if (nextPath.startsWith("/")) window.location.href = nextPath;
+    else navigate("/");
+  };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,14 +38,14 @@ const Auth = () => {
     if (isLogin) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { toast.error(error.message); }
-      else { toast.success("Welcome back!"); navigate("/"); }
+      else { toast.success("Welcome back!"); goNext(); }
     } else {
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { full_name: fullName },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: window.location.origin + nextPath,
         },
       });
       if (error) { toast.error(error.message); }
@@ -80,7 +87,7 @@ const Auth = () => {
       toast.error(error.message);
     } else {
       toast.success("Welcome!");
-      navigate("/");
+      goNext();
     }
     setLoading(false);
   };
@@ -89,7 +96,7 @@ const Auth = () => {
     setGoogleLoading(true);
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        redirect_uri: window.location.origin + nextPath,
       });
 
       if (result.error) {
@@ -103,7 +110,7 @@ const Auth = () => {
       }
 
       toast.success("Welcome!");
-      navigate("/");
+      goNext();
     } catch (err) {
       toast.error("Google sign-in failed. Please try again.");
     }
