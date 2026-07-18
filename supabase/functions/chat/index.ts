@@ -79,11 +79,11 @@ async function execTool(name: string, args: any, userId: string | null) {
     return { results: data ?? [] };
   }
   if (name === "get_order_status") {
+    if (!userId) return { error: "Please sign in to look up your order." };
     let id = String(args.order_id || "").trim().toLowerCase();
     if (!id) return { error: "order_id required" };
-    let q = supabase.from("orders").select("id, status, total, subtotal, shipping, discount, created_at, user_id");
+    let q = supabase.from("orders").select("id, status, total, subtotal, shipping, discount, created_at, user_id").eq("user_id", userId);
     q = id.length === 36 ? q.eq("id", id) : q.ilike("id", `${id}%`);
-    if (userId) q = q.eq("user_id", userId);
     const { data: orders, error } = await q.limit(1);
     if (error) return { error: error.message };
     const order = orders?.[0];
