@@ -1261,6 +1261,7 @@ export type Database = {
         Args: { p_points: number; p_reason: string; p_user_id: string }
         Returns: undefined
       }
+      create_referral: { Args: { p_email: string }; Returns: string }
       get_frequently_bought_together: {
         Args: { p_limit?: number; p_product_id: string }
         Returns: {
