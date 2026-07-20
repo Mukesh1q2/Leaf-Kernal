@@ -9,43 +9,13 @@ import NotificationBell from "@/components/NotificationBell";
 import { useLoyaltyBalance } from "@/lib/loyalty";
 import logo from "@/assets/logo.png";
 
-const navLinks = [
-  { label: "Home", href: "/" },
-  {
-    label: "Shop",
-    href: "/shop",
-    children: [
-      { label: "Powders", href: "/shop?category=powders" },
-      { label: "Capsules", href: "/shop?category=capsules" },
-      { label: "Oils & Ghee", href: "/shop?category=oils-ghee" },
-      { label: "Seeds & Grains", href: "/shop?category=seeds-grains" },
-      { label: "Teas & Infusions", href: "/shop?category=teas-infusions" },
-      { label: "Bundles", href: "/shop?category=bundles" },
-    ],
-  },
-  {
-    label: "Shop by Goal",
-    href: "/shop",
-    children: [
-      { label: "Energy & Performance", href: "/shop?concern=metabolism" },
-      { label: "Everyday Wellness", href: "/shop?concern=nutrition-support" },
-      { label: "Detox & Cleanse", href: "/shop?concern=gut-care" },
-      { label: "Mind-Body Balance", href: "/shop?concern=mind-focus" },
-      { label: "Better Sleep", href: "/shop?concern=sleep-care" },
-    ],
-  },
-  { label: "About", href: "/about" },
-  { label: "Quiz", href: "/quiz" },
-  { label: "Blog", href: "/blog" },
-  { label: "FAQ", href: "/faq" },
-  { label: "Contact", href: "/contact" },
-];
-
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [categories, setCategories] = useState<{ slug: string; name: string }[]>([]);
+  const [concerns, setConcerns] = useState<{ slug: string; name: string }[]>([]);
   const { user } = useAuth();
   const { itemCount } = useCart();
   const { balance: loyaltyBalance } = useLoyaltyBalance();
@@ -67,6 +37,34 @@ const Header = () => {
     if (!user) { setIsAdmin(false); return; }
     supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }).then(({ data }) => setIsAdmin(!!data));
   }, [user]);
+
+  // Load dynamic nav data
+  useEffect(() => {
+    supabase.from("categories").select("slug,name").order("name").then(({ data }) => setCategories(data || []));
+    supabase.from("health_concerns").select("slug,name").order("name").then(({ data }) => setConcerns(data || []));
+  }, []);
+
+  const navLinks = [
+    { label: "Home", href: "/" },
+    {
+      label: "Shop",
+      href: "/shop",
+      children: [
+        { label: "All Products", href: "/shop" },
+        ...categories.map((c) => ({ label: c.name, href: `/shop?category=${c.slug}` })),
+      ],
+    },
+    ...(concerns.length > 0 ? [{
+      label: "Shop by Goal",
+      href: "/shop",
+      children: concerns.map((c) => ({ label: c.name, href: `/shop?concern=${c.slug}` })),
+    }] : []),
+    { label: "About", href: "/about" },
+    { label: "Quiz", href: "/quiz" },
+    { label: "Blog", href: "/blog" },
+    { label: "FAQ", href: "/faq" },
+    { label: "Contact", href: "/contact" },
+  ];
 
   return (
     <>
