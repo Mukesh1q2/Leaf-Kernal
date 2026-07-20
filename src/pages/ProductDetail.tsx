@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
-import { Star, ShoppingBag, Heart, Minus, Plus, ChevronRight, Truck, Shield, RotateCcw, RefreshCw, Loader2 } from "lucide-react";
+import { Star, ShoppingBag, Heart, Minus, Plus, ChevronRight, Truck, Shield, RotateCcw, RefreshCw, Loader2, Leaf, Sprout, BadgeCheck, HeartPulse } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { FrequentlyBoughtTogether } from "@/components/RecommendationWidgets";
@@ -168,6 +168,20 @@ const ProductDetail = () => {
                 >
                   <Heart size={20} className={isInWishlist(product.id) ? "fill-destructive text-destructive" : "text-foreground"} />
                 </button>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { icon: Leaf, label: "100% Vegan" },
+                  { icon: Sprout, label: "Ayurvedic" },
+                  { icon: HeartPulse, label: "No Preservatives" },
+                  { icon: BadgeCheck, label: "GMP Certified" },
+                ].map(({ icon: Icon, label }) => (
+                  <div key={label} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-leaf/5 border border-leaf/20">
+                    <Icon size={16} className="text-secondary shrink-0" />
+                    <span className="text-xs font-medium text-foreground">{label}</span>
+                  </div>
+                ))}
               </div>
 
               <div className="mt-4 border border-border rounded-xl p-4 bg-muted/40">
