@@ -7,6 +7,7 @@ import { Star, ShoppingBag, Heart, Minus, Plus, ChevronRight, Truck, Shield, Rot
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { FrequentlyBoughtTogether } from "@/components/RecommendationWidgets";
+import ProductReviews from "@/components/ProductReviews";
 import { trackActivity } from "@/lib/activity";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscriptionDiscount, createSubscription } from "@/lib/subscriptions";
@@ -29,6 +30,7 @@ const ProductDetail = () => {
   const [subscribeMode, setSubscribeMode] = useState(false);
   const [cadence, setCadence] = useState(30);
   const [subSaving, setSubSaving] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
 
   const handleSubscribe = async () => {
     if (!user) { navigate("/auth"); return; }
@@ -110,12 +112,17 @@ const ProductDetail = () => {
 
         <div className="container pb-16">
           <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-            <div className="relative aspect-square bg-cream-dark rounded-2xl overflow-hidden">
-              <img src={product.image_url || "/placeholder.svg"} alt={product.name} className="w-full h-full object-cover" />
+            <div className="relative aspect-square bg-cream-dark rounded-2xl overflow-hidden cursor-zoom-in group" onClick={() => setZoomed(true)}>
+              <img src={product.image_url || "/placeholder.svg"} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
               {product.badge && (
                 <span className="absolute top-4 left-4 bg-secondary text-secondary-foreground text-sm font-bold px-3 py-1.5 rounded-full">{product.badge}</span>
               )}
             </div>
+            {zoomed && (
+              <div onClick={() => setZoomed(false)} className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in">
+                <img src={product.image_url || "/placeholder.svg"} alt={product.name} className="max-w-full max-h-full object-contain rounded-lg" />
+              </div>
+            )}
 
             <div>
               <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">{product.name}</h1>
@@ -251,6 +258,7 @@ const ProductDetail = () => {
           )}
 
           <FrequentlyBoughtTogether productId={product.id} />
+          <ProductReviews productId={product.id} />
         </div>
       </main>
       <Footer />
