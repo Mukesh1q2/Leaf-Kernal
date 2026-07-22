@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import RichTextEditor from "@/components/RichTextEditor";
 import ImageUpload from "@/components/admin/ImageUpload";
+import MultiImageUpload from "@/components/admin/MultiImageUpload";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,13 +33,14 @@ interface Product {
   how_to_use: string | null;
   benefits: string | null;
   category_id: string | null;
+  gallery_urls?: string[] | null;
 }
 
 const emptyForm = {
   name: "", slug: "", price: "", original_price: "", short_description: "", description: "",
   stock_quantity: "100", is_active: true, is_featured: false, badge: "",
   ingredients: "", how_to_use: "", benefits: "", category_id: "",
-  image_url: "", seo_title: "", seo_description: "",
+  image_url: "", gallery_urls: [] as string[], seo_title: "", seo_description: "",
 };
 
 const AdminProducts = () => {
@@ -78,7 +80,8 @@ const AdminProducts = () => {
       badge: p.badge || "",
       ingredients: p.ingredients || "", how_to_use: p.how_to_use || "",
       benefits: p.benefits || "", category_id: p.category_id || "",
-      image_url: p.image_url || "", seo_title: "", seo_description: "",
+      image_url: p.image_url || "", gallery_urls: p.gallery_urls || [],
+      seo_title: "", seo_description: "",
     });
     setDialogOpen(true);
   };
@@ -100,6 +103,7 @@ const AdminProducts = () => {
       benefits: form.benefits || null,
       category_id: form.category_id || null,
       image_url: form.image_url || null,
+      gallery_urls: form.gallery_urls || [],
     };
     if (editId) {
       await supabase.from("products").update(payload).eq("id", editId);
@@ -275,7 +279,14 @@ const AdminProducts = () => {
               </div>
               <div><Label>Full Description</Label><RichTextEditor content={form.description} onChange={(html) => setForm({ ...form, description: html })} placeholder="Detailed product description..." /></div>
               <div><Label>Badge</Label><Input value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} placeholder="e.g. Best Seller, New" /></div>
-              <div><Label>Product Image</Label><ImageUpload value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} /></div>
+              <div>
+                <Label>Main Product Image (Cover)</Label>
+                <ImageUpload value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} />
+              </div>
+              <div>
+                <Label>Gallery Images (4–6+ angles, ingredients, packaging)</Label>
+                <MultiImageUpload values={form.gallery_urls} onChange={(urls) => setForm({ ...form, gallery_urls: urls })} max={10} />
+              </div>
             </TabsContent>
 
             <TabsContent value="pricing" className="space-y-4 mt-4">

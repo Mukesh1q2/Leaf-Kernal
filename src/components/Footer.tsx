@@ -37,6 +37,9 @@ const footerLinks = {
     { label: "Contact Us", to: "/contact" },
     { label: "My Account", to: "/account" },
     { label: "Track Order", to: "/account" },
+    { label: "Shipping Policy", to: "/shipping-policy" },
+    { label: "Return & Refund", to: "/return-policy" },
+    { label: "Terms & Conditions", to: "/terms-conditions" },
   ],
 };
 
@@ -50,7 +53,7 @@ const Footer = () => {
               <img src={logoWhite} alt="Leaf & Kernel Superfoods" className="h-16 w-auto" />
             </div>
             <p className="text-sm opacity-80 leading-relaxed mb-6">
-              Plant-powered superfoods rooted in Ayurveda, crafted for modern life.
+              UVEDIQ — plant-powered superfoods rooted in Ayurveda, crafted for modern life by Leaf &amp; Kernel Superfoods Company.
             </p>
             <div className="flex gap-3">
               {socials.map(({ Icon, url, label }) => (
@@ -86,7 +89,7 @@ const Footer = () => {
 
         <div className="mt-12 pt-8 border-t border-forest-light flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
           <p className="text-sm opacity-60 whitespace-normal break-words">
-            © 2026 Leaf &amp; Kernel Superfoods Co. All rights reserved. | Design by{" "}
+            © 2026 UVEDIQ · Leaf &amp; Kernel Superfoods Company. All rights reserved. | Design by{" "}
             <a href="https://theqbitlabs.com" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-100 transition-opacity whitespace-nowrap">
               The Qbitlabs
             </a>

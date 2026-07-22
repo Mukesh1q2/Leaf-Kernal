@@ -57,6 +57,9 @@ import TrackOrder from "./pages/TrackOrder";
 import Quiz from "./pages/Quiz";
 import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
 import NotFound from "./pages/NotFound";
+import ShippingPolicy from "./pages/ShippingPolicy";
+import ReturnRefundPolicy from "./pages/ReturnRefundPolicy";
+import TermsConditions from "./pages/TermsConditions";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +95,9 @@ const App = () => (
                 <Route path="/loyalty" element={<LoyaltyPoints />} />
                 <Route path="/track/:orderId" element={<TrackOrder />} />
                 <Route path="/quiz" element={<Quiz />} />
+                <Route path="/shipping-policy" element={<ShippingPolicy />} />
+                <Route path="/return-policy" element={<ReturnRefundPolicy />} />
+                <Route path="/terms-conditions" element={<TermsConditions />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<AdminDashboard />} />
