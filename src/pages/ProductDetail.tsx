@@ -31,6 +31,7 @@ const ProductDetail = () => {
   const [cadence, setCadence] = useState(30);
   const [subSaving, setSubSaving] = useState(false);
   const [zoomed, setZoomed] = useState(false);
+  const [activeImage, setActiveImage] = useState(0);
 
   const handleSubscribe = async () => {
     if (!user) { navigate("/auth"); return; }
@@ -59,6 +60,7 @@ const ProductDetail = () => {
       const { data } = await supabase.from("products").select("*").eq("slug", slug).single();
       if (data) {
         setProduct(data);
+        setActiveImage(0);
         trackActivity("view", data.id, { slug: data.slug });
         const { data: related } = await supabase.from("products").select("*").eq("category_id", data.category_id).neq("id", data.id).limit(4);
         setRelatedProducts(related || []);
@@ -89,6 +91,13 @@ const ProductDetail = () => {
 
   const discount = product.original_price ? Math.round((1 - product.price / product.original_price) * 100) : 0;
 
+  const gallery: string[] = [
+    product.image_url,
+    ...((product.gallery_urls as string[] | null) || []),
+  ].filter((u): u is string => !!u);
+  if (gallery.length === 0) gallery.push("/placeholder.svg");
+  const currentImage = gallery[Math.min(activeImage, gallery.length - 1)];
+
   const tabs = [
     { id: "description", label: "Description" },
     { id: "ingredients", label: "Ingredients" },
@@ -112,15 +121,31 @@ const ProductDetail = () => {
 
         <div className="container pb-16">
           <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-            <div className="relative aspect-square bg-cream-dark rounded-2xl overflow-hidden cursor-zoom-in group" onClick={() => setZoomed(true)}>
-              <img src={product.image_url || "/placeholder.svg"} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-              {product.badge && (
-                <span className="absolute top-4 left-4 bg-secondary text-secondary-foreground text-sm font-bold px-3 py-1.5 rounded-full">{product.badge}</span>
+            <div>
+              <div className="relative aspect-square bg-cream-dark rounded-2xl overflow-hidden cursor-zoom-in group" onClick={() => setZoomed(true)}>
+                <img src={currentImage} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                {product.badge && (
+                  <span className="absolute top-4 left-4 bg-secondary text-secondary-foreground text-sm font-bold px-3 py-1.5 rounded-full">{product.badge}</span>
+                )}
+              </div>
+              {gallery.length > 1 && (
+                <div className="mt-3 grid grid-cols-5 sm:grid-cols-6 gap-2">
+                  {gallery.map((url, i) => (
+                    <button
+                      key={url + i}
+                      onClick={() => setActiveImage(i)}
+                      className={`aspect-square rounded-lg overflow-hidden border-2 transition ${i === activeImage ? "border-secondary" : "border-transparent hover:border-border"}`}
+                      aria-label={`View image ${i + 1}`}
+                    >
+                      <img src={url} alt={`${product.name} ${i + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
             {zoomed && (
               <div onClick={() => setZoomed(false)} className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in">
-                <img src={product.image_url || "/placeholder.svg"} alt={product.name} className="max-w-full max-h-full object-contain rounded-lg" />
+                <img src={currentImage} alt={product.name} className="max-w-full max-h-full object-contain rounded-lg" />
               </div>
             )}
 
