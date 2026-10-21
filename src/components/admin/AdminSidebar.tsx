@@ -1,8 +1,8 @@
 import {
   LayoutDashboard, Package, ShoppingCart, FileText, HelpCircle,
   ArrowLeft, Star, Gift, Image, Users, Settings, BarChart3, Archive, ClipboardList, Shield,
-  PackageOpen, ShoppingBag, Award, UserPlus, FolderTree, Heart, MapPin, MessageSquare, Truck
-  , RefreshCw
+  PackageOpen, ShoppingBag, Award, UserPlus, FolderTree, Heart, MapPin, MessageSquare, Truck,
+  RefreshCw
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
@@ -10,10 +10,12 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { useCmsAuth } from "./AdminLayout";
 
-const sections = [
+const allSections = [
   {
     label: "Main",
+    adminOnly: false,
     items: [
       { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
       { title: "Activity Log", url: "/admin/activity", icon: ClipboardList },
@@ -21,6 +23,7 @@ const sections = [
   },
   {
     label: "Catalog",
+    adminOnly: false,
     items: [
       { title: "Products", url: "/admin/products", icon: Package },
       { title: "Categories", url: "/admin/categories", icon: FolderTree },
@@ -31,6 +34,7 @@ const sections = [
   },
   {
     label: "Sales",
+    adminOnly: true,
     items: [
       { title: "Orders", url: "/admin/orders", icon: ShoppingCart },
       { title: "Deliveries", url: "/admin/deliveries", icon: Truck },
@@ -41,6 +45,7 @@ const sections = [
   },
   {
     label: "Content",
+    adminOnly: false,
     items: [
       { title: "Media Library", url: "/admin/media", icon: Image },
       { title: "Blog", url: "/admin/blog", icon: FileText },
@@ -51,14 +56,16 @@ const sections = [
   },
   {
     label: "Insights",
+    adminOnly: false,
     items: [
-      { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
-      { title: "Abandoned Carts", url: "/admin/abandoned-carts", icon: ShoppingBag },
-      { title: "Reviews", url: "/admin/reviews", icon: Star },
+      { title: "Analytics", url: "/admin/analytics", icon: BarChart3, adminOnly: true },
+      { title: "Abandoned Carts", url: "/admin/abandoned-carts", icon: ShoppingBag, adminOnly: true },
+      { title: "Reviews", url: "/admin/reviews", icon: Star, adminOnly: false },
     ],
   },
   {
     label: "Growth",
+    adminOnly: true,
     items: [
       { title: "Loyalty Points", url: "/admin/loyalty", icon: Award },
       { title: "Referrals", url: "/admin/referrals", icon: UserPlus },
@@ -66,6 +73,7 @@ const sections = [
   },
   {
     label: "System",
+    adminOnly: true,
     items: [
       { title: "User Roles", url: "/admin/users", icon: Shield },
       { title: "Pincodes", url: "/admin/pincodes", icon: MapPin },
@@ -76,10 +84,21 @@ const sections = [
 ];
 
 const AdminSidebar = () => {
+  const { isAdmin } = useCmsAuth();
+
+  // If not full admin, only show content sections
+  const visibleSections = allSections
+    .filter((sec) => (isAdmin ? true : !sec.adminOnly))
+    .map((sec) => ({
+      ...sec,
+      items: sec.items.filter((item: any) => (isAdmin ? true : !item.adminOnly)),
+    }))
+    .filter((sec) => sec.items.length > 0);
+
   return (
     <Sidebar className="border-r border-border">
       <SidebarContent>
-        {sections.map((section) => (
+        {visibleSections.map((section) => (
           <SidebarGroup key={section.label}>
             <SidebarGroupLabel className="flex items-center justify-between">
               <span>{section.label}</span>

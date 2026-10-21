@@ -1,0 +1,141 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production_deploy
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Build & Test (CI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies (lockfile)
+        run: npm ci
+
+      - name: Code Quality (Lint)
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Run automated test suite
+        run: npm test
+
+      - name: Build production bundle
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PROJECT_ID: ${{ vars.VITE_SUPABASE_PROJECT_ID }}
+        run: npm run build
+
+      - name: Upload production build artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-dist
+          path: dist/
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Production VPS
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download production build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: production-dist
+          path: dist
+
+      - name: Deploy release and atomic switch
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+          VPS_KNOWN_HOSTS: ${{ vars.VPS_KNOWN_HOSTS }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+
+          # Configure SSH with pinned host key
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${VPS_SSH_KEY}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          echo "${VPS_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+          SSH_CMD="ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes -o BatchMode=yes ${VPS_USER}@${VPS_HOST}"
+
+          # Safety check: Prevent deployment as root
+          DEPLOY_WHOAMI=$($SSH_CMD "whoami")
+          if [ "$DEPLOY_WHOAMI" = "root" ]; then
+            echo "ERROR: Refusing to deploy as root user." >&2
+            exit 1
+          fi
+          echo "Verified deploy user: ${DEPLOY_WHOAMI}"
+
+          # Create timestamped release directory
+          RELEASE_ID=$(date -u +%Y%m%d%H%M%S)
+          RELEASE_DIR="/var/www/leaf-kernel/releases/${RELEASE_ID}"
+          echo "Deploying release ${RELEASE_ID} to ${RELEASE_DIR}"
+
+          $SSH_CMD "mkdir -p ${RELEASE_DIR}"
+
+          # Compress and stream build artifact to target release folder
+          tar -czf dist.tar.gz -C dist .
+          scp -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes -o BatchMode=yes dist.tar.gz "${VPS_USER}@${VPS_HOST}:${RELEASE_DIR}/dist.tar.gz"
+          $SSH_CMD "cd ${RELEASE_DIR} && tar -xzf dist.tar.gz && rm -f dist.tar.gz"
+          rm -f dist.tar.gz
+
+          # Capture previous release path for automated rollback if needed
+          PREV_RELEASE=$($SSH_CMD "readlink -f /var/www/leaf-kernel/current || true")
+          echo "Previous release: ${PREV_RELEASE}"
+
+          # Atomic symlink switch using tmp symlink and rename
+          $SSH_CMD "ln -sfn ${RELEASE_DIR} /var/www/leaf-kernel/current_new && mv -Tf /var/www/leaf-kernel/current_new /var/www/leaf-kernel/current"
+          echo "Symlink atomically updated to ${RELEASE_DIR}"
+
+          # Post-deployment live HTTPS health check
+          echo "Verifying live homepage: https://www.leafandkernel.com ..."
+          HEALTH_CHECK_PASSED=false
+          for attempt in 1 2 3 4 5; do
+            echo "Health check attempt $attempt/5..."
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 15 "https://www.leafandkernel.com")
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "Health check passed (HTTP 200)."
+              HEALTH_CHECK_PASSED=true
+              break
+            fi
+            sleep 3
+          done
+
+          if [ "$HEALTH_CHECK_PASSED" != "true" ]; then
+            echo "ERROR: Post-deployment verification failed with status ${HTTP_STATUS}" >&2
+            echo "Initiating automatic rollback to ${PREV_RELEASE}..."
+            if [ -n "$PREV_RELEASE" ] && [ "$PREV_RELEASE" != "${RELEASE_DIR}" ]; then
+              $SSH_CMD "ln -sfn ${PREV_RELEASE} /var/www/leaf-kernel/current_new && mv -Tf /var/www/leaf-kernel/current_new /var/www/leaf-kernel/current"
+              echo "Rolled back symlink to: ${PREV_RELEASE}"
+            fi
+            $SSH_CMD "rm -rf ${RELEASE_DIR}"
+            exit 1
+          fi
+
+          # Prune old releases, keeping the 5 most recent
+          echo "Pruning older releases (retaining 5 most recent)..."
+          $SSH_CMD 'cd /var/www/leaf-kernel/releases && ls -1dt */ | tail -n +6 | xargs -r rm -rf'
+          echo "Release ${RELEASE_ID} deployed and verified successfully!"
