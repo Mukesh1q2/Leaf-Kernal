@@ -14,7 +14,9 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ImagePlus, Search, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, ImagePlus, Search, Download, History } from "lucide-react";
+import { saveRevision } from "@/lib/revisions";
+import { RevisionHistoryDialog } from "@/components/admin/RevisionHistoryDialog";
 
 interface Product {
   id: string;
@@ -48,12 +50,48 @@ const AdminProducts = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [genLoading, setGenLoading] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  const toggleSelectAll = (filteredProds: Product[]) => {
+    if (selectedIds.size === filteredProds.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredProds.map((p) => p.id)));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const handleBulkStatus = async (isActive: boolean) => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    await supabase.from("products").update({ is_active: isActive }).in("id", ids);
+    toast({ title: `Updated ${ids.length} products` });
+    setSelectedIds(new Set());
+    fetchProducts();
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Delete ${selectedIds.size} selected products?`)) return;
+    const ids = Array.from(selectedIds);
+    await supabase.from("products").delete().in("id", ids);
+    toast({ title: `Deleted ${ids.length} products` });
+    setSelectedIds(new Set());
+    fetchProducts();
+  };
 
   const fetchProducts = async () => {
     const [{ data: prods }, { data: cats }] = await Promise.all([
@@ -107,9 +145,11 @@ const AdminProducts = () => {
     };
     if (editId) {
       await supabase.from("products").update(payload).eq("id", editId);
+      saveRevision("product", editId, payload.name, payload);
       toast({ title: "Product updated" });
     } else {
-      await supabase.from("products").insert(payload);
+      const { data } = await supabase.from("products").insert(payload).select().single();
+      if (data) saveRevision("product", data.id, payload.name, payload);
       toast({ title: "Product created" });
     }
     setDialogOpen(false);
@@ -187,11 +227,34 @@ const AdminProducts = () => {
         </Select>
       </div>
 
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-center justify-between animate-fade-in">
+          <span className="text-sm font-medium text-primary">
+            {selectedIds.size} product(s) selected
+          </span>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => handleBulkStatus(true)}>Bulk Publish</Button>
+            <Button size="sm" variant="outline" onClick={() => handleBulkStatus(false)}>Bulk Draft</Button>
+            <Button size="sm" variant="destructive" onClick={handleBulkDelete}>Bulk Delete</Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                    onChange={() => toggleSelectAll(filtered)}
+                    className="rounded accent-primary cursor-pointer"
+                  />
+                </TableHead>
                 <TableHead>Image</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Price</TableHead>
@@ -204,8 +267,17 @@ const AdminProducts = () => {
             <TableBody>
               {filtered.map((p) => {
                 const ss = getStockStatus(p.stock_quantity);
+                const isSelected = selectedIds.has(p.id);
                 return (
-                  <TableRow key={p.id}>
+                  <TableRow key={p.id} className={isSelected ? "bg-muted/50" : ""}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectOne(p.id)}
+                        className="rounded accent-primary cursor-pointer"
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="w-10 h-10 rounded bg-muted overflow-hidden">
                         <img src={p.image_url || "/placeholder.svg"} alt={p.name} className="w-full h-full object-cover" />
@@ -250,7 +322,14 @@ const AdminProducts = () => {
       {/* Multi-tab Product Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editId ? "Edit Product" : "New Product"}</DialogTitle></DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between">
+            <DialogTitle>{editId ? "Edit Product" : "New Product"}</DialogTitle>
+            {editId && (
+              <Button type="button" variant="outline" size="sm" onClick={() => setHistoryOpen(true)} className="gap-1 text-xs">
+                <History className="h-3.5 w-3.5" /> Revisions
+              </Button>
+            )}
+          </DialogHeader>
           <Tabs defaultValue="basic">
             <TabsList className="w-full grid grid-cols-5">
               <TabsTrigger value="basic">Basic</TabsTrigger>
@@ -341,6 +420,36 @@ const AdminProducts = () => {
           <Button onClick={save} className="w-full mt-4">{editId ? "Update" : "Create"} Product</Button>
         </DialogContent>
       </Dialog>
+
+      <RevisionHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        entityType="product"
+        entityId={editId}
+        onRestore={(payload) => {
+          setForm({
+            name: payload.name || "",
+            slug: payload.slug || "",
+            price: payload.price ? String(payload.price) : "",
+            original_price: payload.original_price ? String(payload.original_price) : "",
+            short_description: payload.short_description || "",
+            description: payload.description || "",
+            stock_quantity: String(payload.stock_quantity ?? 100),
+            is_active: payload.is_active ?? true,
+            is_featured: payload.is_featured ?? false,
+            badge: payload.badge || "",
+            ingredients: payload.ingredients || "",
+            how_to_use: payload.how_to_use || "",
+            benefits: payload.benefits || "",
+            category_id: payload.category_id || "",
+            image_url: payload.image_url || "",
+            gallery_urls: payload.gallery_urls || [],
+            seo_title: payload.seo_title || "",
+            seo_description: payload.seo_description || "",
+          });
+          toast({ title: "Restored product draft from revision" });
+        }}
+      />
     </div>
   );
 };

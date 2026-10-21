@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowLeft, Sparkles, ShoppingBag, RefreshCw, Loader2, Check } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { SEOHead } from "@/components/SEOHead";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
@@ -65,6 +66,11 @@ const Quiz = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEOHead
+        title="Personalized Ayurvedic Wellness Quiz"
+        description="Take our 60-second Ayurvedic superfood assessment to find the perfect plant-powered routine for your health goals."
+        url="https://leafandkernel.com/quiz"
+      />
       <Header />
       <main className="flex-1">
         <section className="bg-gradient-to-br from-primary to-forest-light text-primary-foreground py-12">

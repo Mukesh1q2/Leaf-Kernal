@@ -10,14 +10,17 @@ import { Textarea } from "@/components/ui/textarea";
 import RichTextEditor from "@/components/RichTextEditor";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, History } from "lucide-react";
 import { format } from "date-fns";
+import { saveRevision } from "@/lib/revisions";
+import { RevisionHistoryDialog } from "@/components/admin/RevisionHistoryDialog";
 
 const emptyForm = { title: "", slug: "", excerpt: "", content: "", category: "", image_url: "", is_published: false, scheduled_at: "" };
 
 const AdminBlog = () => {
   const [posts, setPosts] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const { toast } = useToast();
@@ -40,9 +43,11 @@ const AdminBlog = () => {
     const payload = { ...form, slug: form.slug || form.title.toLowerCase().replace(/\s+/g, "-"), published_at: form.is_published ? new Date().toISOString() : null, scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null };
     if (editId) {
       await supabase.from("blog_posts").update(payload).eq("id", editId);
+      saveRevision("blog_post", editId, payload.title, payload);
       toast({ title: "Post updated" });
     } else {
-      await supabase.from("blog_posts").insert(payload);
+      const { data } = await supabase.from("blog_posts").insert(payload).select().single();
+      if (data) saveRevision("blog_post", data.id, payload.title, payload);
       toast({ title: "Post created" });
     }
     setDialogOpen(false);
@@ -99,7 +104,14 @@ const AdminBlog = () => {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editId ? "Edit Post" : "New Post"}</DialogTitle></DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between">
+            <DialogTitle>{editId ? "Edit Post" : "New Post"}</DialogTitle>
+            {editId && (
+              <Button type="button" variant="outline" size="sm" onClick={() => setHistoryOpen(true)} className="gap-1 text-xs">
+                <History className="h-3.5 w-3.5" /> Revisions
+              </Button>
+            )}
+          </DialogHeader>
           <div className="space-y-4">
             <div><Label>Title</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
             <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></div>
@@ -113,6 +125,26 @@ const AdminBlog = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <RevisionHistoryDialog
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        entityType="blog_post"
+        entityId={editId}
+        onRestore={(payload) => {
+          setForm({
+            title: payload.title || "",
+            slug: payload.slug || "",
+            excerpt: payload.excerpt || "",
+            content: payload.content || "",
+            category: payload.category || "",
+            image_url: payload.image_url || "",
+            is_published: !!payload.is_published,
+            scheduled_at: payload.scheduled_at ? new Date(payload.scheduled_at).toISOString().slice(0, 16) : "",
+          });
+          toast({ title: "Restored draft state from revision" });
+        }}
+      />
     </div>
   );
 };

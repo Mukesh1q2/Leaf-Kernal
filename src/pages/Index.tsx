@@ -8,10 +8,18 @@ import Newsletter from "@/components/Newsletter";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { TrendingProducts, RecommendedForYou } from "@/components/RecommendationWidgets";
+import { SEOHead } from "@/components/SEOHead";
+import { generateOrganizationSchema } from "@/lib/seo";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Plant-Powered Superfoods & Ayurvedic Wellness"
+        description="Shop certified organic Ayurvedic superfood blends, Ashwagandha, Moringa, Turmeric & herbal teas. Free shipping on orders above ₹999."
+        url="https://leafandkernel.com/"
+        jsonLd={generateOrganizationSchema()}
+      />
       <Header />
       <main>
         <HeroSection />

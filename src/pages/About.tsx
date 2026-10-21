@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { SEOHead } from "@/components/SEOHead";
 import { Leaf, Heart, Award, Globe } from "lucide-react";
 
 const values = [
@@ -12,6 +13,11 @@ const values = [
 const About = () => {
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="About Our Story & Ayurvedic Roots"
+        description="Discover the story of Leaf & Kernel — bridging ancient Ayurvedic wisdom with pure, certified organic plant-powered superfoods."
+        url="https://leafandkernel.com/about"
+      />
       <Header />
       <main>
         <div className="bg-primary py-16 text-center">

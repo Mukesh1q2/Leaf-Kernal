@@ -1,10 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+const ALLOWED_ORIGINS = [
+  "https://leafandkernel.com",
+  "https://www.leafandkernel.com",
+  // Allow local development
+  "http://localhost:8080",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 const SYSTEM_PROMPT = `You are Leafy 🌿, the AI shopping assistant for Leaf & Kernel — an Indian D2C Ayurvedic superfoods brand.
 
@@ -22,37 +37,34 @@ Style:
 - For order-specific questions without an ID, ask the user for the order ID (first 8 chars are fine) or tell them to visit /account.
 `;
 
-const tools = [
+// Gemini-compatible tool definitions
+const geminiTools = [
   {
-    type: "function",
-    function: {
-      name: "search_products",
-      description: "Search live product catalog by keyword (matches name, short description, ingredients, benefits). Returns name, slug, price, original_price, badge, rating, stock, image.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: { type: "string", description: "Free-text query — product name, ingredient, benefit, or health concern keyword" },
-          limit: { type: "number", description: "Max results (default 5, max 10)" },
+    functionDeclarations: [
+      {
+        name: "search_products",
+        description: "Search live product catalog by keyword (matches name, short description, ingredients, benefits). Returns name, slug, price, original_price, badge, rating, stock, image.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            query: { type: "STRING", description: "Free-text query — product name, ingredient, benefit, or health concern keyword" },
+            limit: { type: "NUMBER", description: "Max results (default 5, max 10)" },
+          },
+          required: ["query"],
         },
-        required: ["query"],
-        additionalProperties: false,
       },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_order_status",
-      description: "Look up an order by its ID (full UUID or first 8 chars). Returns status, totals, items, and latest delivery timeline.",
-      parameters: {
-        type: "object",
-        properties: {
-          order_id: { type: "string", description: "Order UUID or first 8 characters" },
+      {
+        name: "get_order_status",
+        description: "Look up an order by its ID (full UUID or first 8 chars). Returns status, totals, items, and latest delivery timeline.",
+        parameters: {
+          type: "OBJECT",
+          properties: {
+            order_id: { type: "STRING", description: "Order UUID or first 8 characters" },
+          },
+          required: ["order_id"],
         },
-        required: ["order_id"],
-        additionalProperties: false,
       },
-    },
+    ],
   },
 ];
 
@@ -97,20 +109,59 @@ async function execTool(name: string, args: any, userId: string | null) {
   return { error: `Unknown tool ${name}` };
 }
 
-async function callGateway(body: any) {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-  return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+// Convert OpenAI-style messages to Gemini contents format
+function toGeminiContents(messages: any[]) {
+  const contents: any[] = [];
+  for (const msg of messages) {
+    if (msg.role === "system") continue; // system instruction is passed separately
+    if (msg.role === "user") {
+      contents.push({ role: "user", parts: [{ text: msg.content }] });
+    } else if (msg.role === "assistant") {
+      if (msg.content) {
+        contents.push({ role: "model", parts: [{ text: msg.content }] });
+      }
+      // Handle function calls from assistant
+      if (msg.tool_calls) {
+        const parts = msg.tool_calls.map((tc: any) => ({
+          functionCall: {
+            name: tc.function.name,
+            args: JSON.parse(tc.function.arguments || "{}"),
+          },
+        }));
+        contents.push({ role: "model", parts });
+      }
+    } else if (msg.role === "tool") {
+      contents.push({
+        role: "user",
+        parts: [{ functionResponse: { name: msg.name || "tool", response: JSON.parse(msg.content || "{}") } }],
+      });
+    }
+  }
+  return contents;
+}
+
+// Simple in-memory rate limiter
+const rateLimits = new Map<string, { count: number; resetAt: number }>();
+function checkRateLimit(key: string, maxPerMinute: number): boolean {
+  const now = Date.now();
+  const entry = rateLimits.get(key);
+  if (!entry || now > entry.resetAt) {
+    rateLimits.set(key, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= maxPerMinute) return false;
+  entry.count++;
+  return true;
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+
     const { messages, conversation_id, session_id } = await req.json();
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }),
@@ -128,6 +179,13 @@ serve(async (req) => {
         const { data } = await userClient.auth.getUser();
         userId = data.user?.id ?? null;
       } catch {}
+    }
+
+    // Rate limit: 20 requests/minute per user or IP
+    const rateLimitKey = userId || req.headers.get("x-forwarded-for") || "anon";
+    if (!checkRateLimit(`chat:${rateLimitKey}`, 20)) {
+      return new Response(JSON.stringify({ error: "Too many messages — try again in a moment." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabase = svc();
@@ -155,56 +213,82 @@ serve(async (req) => {
       });
     }
 
-    // Tool-calling loop (non-streaming for tool turns), then stream final answer
+    // Tool-calling loop with Gemini API
     const convo: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
     let safety = 0;
     while (safety++ < 4) {
-      const resp = await callGateway({
-        model: "google/gemini-2.5-flash",
-        messages: convo,
-        tools,
-        tool_choice: "auto",
-      });
+      const geminiContents = toGeminiContents(convo);
+
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: geminiContents,
+            tools: geminiTools,
+          }),
+        }
+      );
+
       if (!resp.ok) {
-        if (resp.status === 429 || resp.status === 402) {
-          return new Response(JSON.stringify({ error: resp.status === 429 ? "Too many messages — try again in a moment." : "AI temporarily unavailable." }),
-            { status: resp.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (resp.status === 429) {
+          return new Response(JSON.stringify({ error: "Too many messages — try again in a moment." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         const t = await resp.text();
-        console.error("AI gateway error:", resp.status, t);
-        return new Response(JSON.stringify({ error: "AI gateway error" }),
+        console.error("Gemini API error:", resp.status, t);
+        return new Response(JSON.stringify({ error: "AI service error" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      const data = await resp.json();
-      const msg = data.choices?.[0]?.message;
-      if (!msg) break;
 
-      const toolCalls = msg.tool_calls || [];
-      if (toolCalls.length === 0) {
-        // No more tools — stream a final answer using the existing conversation
-        convo.push({ role: "assistant", content: msg.content || "" });
+      const data = await resp.json();
+      const candidate = data.candidates?.[0];
+      if (!candidate?.content?.parts) break;
+
+      const parts = candidate.content.parts;
+
+      // Check for function calls
+      const functionCalls = parts.filter((p: any) => p.functionCall);
+
+      if (functionCalls.length === 0) {
+        // No tool calls — extract text response
+        const textParts = parts.filter((p: any) => p.text);
+        const responseText = textParts.map((p: any) => p.text).join("") || "";
+
         // Persist & return
-        if (convId && msg.content) {
+        if (convId && responseText) {
           await supabase.from("chat_messages").insert({
             conversation_id: convId,
             role: "assistant",
-            content: msg.content,
+            content: responseText,
           });
         }
         return new Response(JSON.stringify({
           conversation_id: convId,
-          message: msg.content || "",
+          message: responseText,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Execute tools and continue loop
-      convo.push(msg);
+      // Execute function calls and add results to conversation
+      // Add the assistant's function call to conversation (in OpenAI format for tracking)
+      const toolCalls = functionCalls.map((fc: any, i: number) => ({
+        id: `call_${i}_${Date.now()}`,
+        function: {
+          name: fc.functionCall.name,
+          arguments: JSON.stringify(fc.functionCall.args || {}),
+        },
+      }));
+      convo.push({ role: "assistant", content: null, tool_calls: toolCalls });
+
       for (const tc of toolCalls) {
         let parsed: any = {};
         try { parsed = JSON.parse(tc.function.arguments || "{}"); } catch {}
         const result = await execTool(tc.function.name, parsed, userId);
         convo.push({
           role: "tool",
+          name: tc.function.name,
           tool_call_id: tc.id,
           content: JSON.stringify(result),
         });

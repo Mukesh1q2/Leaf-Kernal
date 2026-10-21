@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Search, ShoppingBag, User, Menu, X, ChevronDown, Shield, Sparkles } from "lucide-react";
+import { Search, ShoppingBag, User, Menu, X, ChevronDown, Shield, Sparkles, Heart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 import { supabase } from "@/integrations/supabase/client";
 import SearchDialog from "@/components/SearchDialog";
 import NotificationBell from "@/components/NotificationBell";
@@ -18,6 +19,7 @@ const Header = () => {
   const [concerns, setConcerns] = useState<{ slug: string; name: string }[]>([]);
   const { user } = useAuth();
   const { itemCount } = useCart();
+  const { itemCount: wishlistCount } = useWishlist();
   const { balance: loyaltyBalance } = useLoyaltyBalance();
 
   // Cmd+K shortcut
@@ -118,6 +120,12 @@ const Header = () => {
                 <Shield size={20} />
               </Link>
             )}
+            <Link to="/wishlist" className="relative p-2 text-foreground hover:text-secondary transition-colors" aria-label="Wishlist">
+              <Heart size={20} />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-secondary text-secondary-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{wishlistCount}</span>
+              )}
+            </Link>
             <Link to={user ? "/account" : "/auth"} className="p-2 text-foreground hover:text-secondary transition-colors" aria-label="Account"><User size={20} /></Link>
             <Link to="/cart" className="relative p-2 text-foreground hover:text-secondary transition-colors" aria-label="Cart">
               <ShoppingBag size={20} />

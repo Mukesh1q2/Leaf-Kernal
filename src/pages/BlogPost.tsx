@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChevronRight, Calendar } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { DraftPreviewBanner } from "@/components/DraftPreviewBanner";
+import { SEOHead } from "@/components/SEOHead";
+import { generateArticleSchema } from "@/lib/seo";
 
 const BlogPost = () => {
   const { slug } = useParams();
@@ -22,6 +25,14 @@ const BlogPost = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title={post.title}
+        description={post.excerpt || post.title}
+        image={post.image_url}
+        type="article"
+        jsonLd={generateArticleSchema(post)}
+      />
+      <DraftPreviewBanner />
       <Header />
       <main className="container py-8">
         <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">

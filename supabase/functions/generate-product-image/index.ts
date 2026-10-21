@@ -1,12 +1,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  "https://leafandkernel.com",
+  "https://www.leafandkernel.com",
+  "http://localhost:8080",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -15,7 +30,9 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const apiKey = Deno.env.get("LOVABLE_API_KEY")!;
+    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+
+    if (!geminiApiKey) throw new Error("GEMINI_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
@@ -30,57 +47,48 @@ serve(async (req) => {
     const { productId, productName, description } = await req.json();
     if (!productId || !productName) throw new Error("Missing product info");
 
-    const prompt = `Professional product photography of "${productName}" - ${description || "a premium Indian superfood supplement"}. Clean white background, studio lighting, high-quality commercial product shot. The product should be displayed in premium packaging with natural botanical elements. Ultra high resolution, 1:1 aspect ratio.`;
+    const prompt = `Generate a professional product photography image of "${productName}" - ${description || "a premium Indian superfood supplement"}. Clean white background, studio lighting, high-quality commercial product shot. The product should be displayed in premium packaging with natural botanical elements. Ultra high resolution, 1:1 aspect ratio.`;
 
-    // Call AI gateway for image generation
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: prompt,
+    // Call Google Gemini Imagen API directly
+    const aiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${geminiApiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"],
           },
-        ],
-      }),
-    });
+        }),
+      }
+    );
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-      throw new Error(`AI gateway error: ${errText}`);
+      throw new Error(`Gemini API error: ${errText}`);
     }
 
     const aiData = await aiResponse.json();
-    
-    // Extract image from response
-    const content = aiData.choices?.[0]?.message?.content;
-    let imageData: string | null = null;
 
-    if (Array.isArray(content)) {
-      const imagePart = content.find((p: any) => p.type === "image_url" || p.type === "image");
-      if (imagePart) {
-        imageData = imagePart.image_url?.url || imagePart.url;
+    // Extract image from Gemini response
+    const parts = aiData.candidates?.[0]?.content?.parts || [];
+    let imageBytes: Uint8Array | null = null;
+
+    for (const part of parts) {
+      if (part.inlineData) {
+        const base64 = part.inlineData.data;
+        const binaryStr = atob(base64);
+        imageBytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          imageBytes[i] = binaryStr.charCodeAt(i);
+        }
+        break;
       }
     }
 
-    if (!imageData) {
+    if (!imageBytes) {
       throw new Error("No image generated from AI response");
-    }
-
-    // Decode base64 if needed
-    let imageBytes: Uint8Array;
-    if (imageData.startsWith("data:")) {
-      const base64 = imageData.split(",")[1];
-      imageBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    } else {
-      // Fetch URL
-      const imgResp = await fetch(imageData);
-      imageBytes = new Uint8Array(await imgResp.arrayBuffer());
     }
 
     // Upload to storage

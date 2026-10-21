@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Package, Heart, MapPin, LogOut, Edit2, Save, Loader2, Trash2, Plus, Star, RefreshCw, Pause, Play, XCircle, RotateCcw } from "lucide-react";
+import { User, Package, Heart, MapPin, LogOut, Edit2, Save, Loader2, Trash2, Plus, Star, RefreshCw, Pause, Play, XCircle, RotateCcw, Truck, Lock, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -18,18 +18,79 @@ const Account = () => {
   const { wishlistProducts, toggleWishlist } = useWishlist();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { subs, refresh: refreshSubs } = useMySubscriptions();
   const [reordering, setReordering] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [addresses, setAddresses] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState("profile");
+  const activeTab = searchParams.get("tab") || "profile";
+  const setActiveTab = (tab: string) => setSearchParams({ tab }, { replace: true });
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({ full_name: "", phone: "" });
   const [addressForm, setAddressForm] = useState(emptyAddress);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+
+  // Change Password state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  // Delete Account state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast({ title: "Password too short", description: "Minimum 6 characters.", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Passwords don't match", variant: "destructive" });
+      return;
+    }
+    setChangingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setChangingPassword(false);
+    if (error) {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Password updated successfully!" });
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== "DELETE") return;
+    setDeletingAccount(true);
+    try {
+      // Delete user data in order (respecting foreign keys)
+      if (user) {
+        await supabase.from("chat_messages").delete().in("conversation_id",
+          (await supabase.from("chat_conversations").select("id").eq("user_id", user.id)).data?.map((c: any) => c.id) || []
+        );
+        await supabase.from("chat_conversations").delete().eq("user_id", user.id);
+        await supabase.from("wishlist_items").delete().eq("user_id", user.id);
+        await supabase.from("cart_items").delete().eq("user_id", user.id);
+        await supabase.from("subscriptions").delete().eq("user_id", user.id);
+        await supabase.from("addresses").delete().eq("user_id", user.id);
+        await supabase.from("notifications").delete().eq("user_id", user.id);
+        await supabase.from("reviews").delete().eq("user_id", user.id);
+        await supabase.from("profiles").delete().eq("user_id", user.id);
+      }
+      // Sign out — full deletion of auth.users requires a server-side admin call
+      await signOut();
+      toast({ title: "Account data deleted", description: "Your personal data has been removed. The auth account will be fully purged within 24 hours." });
+      navigate("/");
+    } catch (e: any) {
+      toast({ title: "Failed", description: e.message, variant: "destructive" });
+    }
+    setDeletingAccount(false);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -128,6 +189,7 @@ const Account = () => {
     { id: "subscriptions", label: "Subscriptions", icon: RefreshCw },
     { id: "wishlist", label: "Wishlist", icon: Heart },
     { id: "addresses", label: "Addresses", icon: MapPin },
+    { id: "security", label: "Security", icon: Lock },
   ];
 
   const handleReorder = async (orderId: string) => {
@@ -241,6 +303,12 @@ const Account = () => {
                             <p className="font-bold text-foreground">₹{order.total}</p>
                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${order.status === "delivered" ? "bg-leaf/10 text-secondary" : order.status === "cancelled" ? "bg-destructive/10 text-destructive" : "bg-gold-light text-accent-foreground"}`}>{order.status}</span>
                           </div>
+                          <Link
+                            to={`/track/${order.id}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-forest-light transition-colors"
+                          >
+                            <Truck size={12} /> Track
+                          </Link>
                           <button
                             onClick={() => handleReorder(order.id)}
                             disabled={reordering === order.id}
@@ -408,6 +476,55 @@ const Account = () => {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+            {activeTab === "security" && (
+              <div className="space-y-8">
+                {/* Change Password */}
+                <div className="bg-card rounded-xl border border-border p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Lock size={18} className="text-secondary" />
+                    <h3 className="font-heading font-semibold text-foreground text-lg">Change Password</h3>
+                  </div>
+                  <div className="space-y-3 max-w-md">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">New Password</label>
+                      <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm" placeholder="Min. 6 characters" minLength={6} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1">Confirm New Password</label>
+                      <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm" placeholder="Re-enter password" />
+                    </div>
+                    <button onClick={handleChangePassword} disabled={changingPassword || !newPassword || !confirmPassword} className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-forest-light disabled:opacity-50">
+                      {changingPassword && <Loader2 size={14} className="animate-spin" />} Update Password
+                    </button>
+                  </div>
+                </div>
+
+                {/* Delete Account */}
+                <div className="bg-card rounded-xl border border-destructive/30 p-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle size={18} className="text-destructive" />
+                    <h3 className="font-heading font-semibold text-destructive text-lg">Delete Account</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">This will permanently delete your profile, orders history, wishlist, subscriptions, addresses, reviews, and chat history. This action cannot be undone.</p>
+                  {!showDeleteConfirm ? (
+                    <button onClick={() => setShowDeleteConfirm(true)} className="px-4 py-2 bg-destructive/10 text-destructive text-sm font-semibold rounded-lg hover:bg-destructive/20">
+                      I want to delete my account
+                    </button>
+                  ) : (
+                    <div className="space-y-3 max-w-md">
+                      <p className="text-sm font-medium text-foreground">Type <span className="font-bold text-destructive">DELETE</span> to confirm:</p>
+                      <input type="text" value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-destructive/50 bg-background text-foreground text-sm" placeholder="Type DELETE" />
+                      <div className="flex gap-2">
+                        <button onClick={handleDeleteAccount} disabled={deletingAccount || deleteConfirmText !== "DELETE"} className="inline-flex items-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground text-sm font-semibold rounded-lg hover:bg-destructive/90 disabled:opacity-50">
+                          {deletingAccount && <Loader2 size={14} className="animate-spin" />} Permanently Delete
+                        </button>
+                        <button onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

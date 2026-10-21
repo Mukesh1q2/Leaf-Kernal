@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { SEOHead } from "@/components/SEOHead";
+import { generateFAQSchema } from "@/lib/seo";
 
 const FAQ = () => {
   const [faqs, setFaqs] = useState<any[]>([]);
@@ -14,6 +16,11 @@ const FAQ = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Frequently Asked Questions"
+        description="Find answers to common questions about Leaf & Kernel superfoods, shipping, dosage, and quality certifications."
+        jsonLd={generateFAQSchema(faqs)}
+      />
       <Header />
       <main>
         <div className="bg-primary py-12 text-center">

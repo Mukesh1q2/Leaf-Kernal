@@ -42,6 +42,7 @@ const sections = [
   {
     label: "Content",
     items: [
+      { title: "Media Library", url: "/admin/media", icon: Image },
       { title: "Blog", url: "/admin/blog", icon: FileText },
       { title: "FAQs", url: "/admin/faqs", icon: HelpCircle },
       { title: "Banners", url: "/admin/banners", icon: Image },

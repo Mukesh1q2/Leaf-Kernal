@@ -51,15 +51,24 @@ export async function createSubscription(params: {
   productId: string;
   quantity: number;
   cadenceDays: number;
-  discountPct: number;
+  discountPct?: number; // Ignored — server validates from site_settings
 }) {
   const next = new Date(Date.now() + params.cadenceDays * 24 * 60 * 60 * 1000).toISOString();
+
+  // Fetch the server-authoritative discount from site_settings
+  const { data: setting } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "subscription_default_discount_pct")
+    .maybeSingle();
+  const serverDiscount = setting?.value ? Number(setting.value) : 10;
+
   const { data, error } = await supabase.from("subscriptions").insert({
     user_id: params.userId,
     product_id: params.productId,
     quantity: params.quantity,
     cadence_days: params.cadenceDays,
-    discount_pct: params.discountPct,
+    discount_pct: serverDiscount, // Server-validated, not client-supplied
     next_charge_at: next,
     status: "active",
   }).select().single();

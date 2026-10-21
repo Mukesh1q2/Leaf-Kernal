@@ -7,6 +7,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { SEOHead } from "@/components/SEOHead";
 
 interface Product {
   id: string;
@@ -73,15 +74,17 @@ const Shop = () => {
       setConcernProductIds(null);
       return;
     }
+    const matched = concerns.find(c => c.id === selectedConcern || c.slug === selectedConcern);
+    const targetConcernId = matched ? matched.id : selectedConcern;
     const fetchConcernProducts = async () => {
       const { data } = await supabase
         .from("product_health_concerns")
         .select("product_id")
-        .eq("concern_id", selectedConcern);
+        .eq("concern_id", targetConcernId);
       setConcernProductIds(new Set((data || []).map(d => d.product_id)));
     };
     fetchConcernProducts();
-  }, [selectedConcern]);
+  }, [selectedConcern, concerns]);
 
   // Build child-category map for hierarchy match
   const childMap = new Map<string, string[]>();
@@ -95,7 +98,9 @@ const Shop = () => {
 
   let filtered = [...products];
   if (selectedCategory) {
-    const ids = new Set([selectedCategory, ...(childMap.get(selectedCategory) || [])]);
+    const matchedCat = categories.find(c => c.id === selectedCategory || c.slug === selectedCategory);
+    const targetCatId = matchedCat ? matchedCat.id : selectedCategory;
+    const ids = new Set([targetCatId, ...(childMap.get(targetCatId) || [])]);
     filtered = filtered.filter(p => p.category_id && ids.has(p.category_id));
   }
   if (selectedConcern && concernProductIds) filtered = filtered.filter(p => concernProductIds.has(p.id));
@@ -110,6 +115,10 @@ const Shop = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Shop Plant-Powered Ayurvedic Superfoods"
+        description="Discover plant-powered nutrition, organic supplements, adaptogens, and wellness powders."
+      />
       <Header />
       <main>
         <div className="bg-primary py-12 text-center">
@@ -148,7 +157,7 @@ const Shop = () => {
                       All Categories
                     </button>
                     {categories.map(cat => (
-                      <button key={cat.id} onClick={() => setSelectedCategory(cat.id)} className={`block text-sm w-full text-left px-3 py-1.5 rounded-md transition-colors ${selectedCategory === cat.id ? "bg-secondary text-secondary-foreground" : "text-foreground hover:bg-muted"}`}>
+                      <button key={cat.id} onClick={() => setSelectedCategory(cat.id)} className={`block text-sm w-full text-left px-3 py-1.5 rounded-md transition-colors ${selectedCategory === cat.id || selectedCategory === cat.slug ? "bg-secondary text-secondary-foreground" : "text-foreground hover:bg-muted"}`}>
                         {cat.name}
                       </button>
                     ))}
@@ -162,7 +171,7 @@ const Shop = () => {
                       All Concerns
                     </button>
                     {concerns.map(c => (
-                      <button key={c.id} onClick={() => setSelectedConcern(c.id)} className={`block text-sm w-full text-left px-3 py-1.5 rounded-md transition-colors ${selectedConcern === c.id ? "bg-secondary text-secondary-foreground" : "text-foreground hover:bg-muted"}`}>
+                      <button key={c.id} onClick={() => setSelectedConcern(c.id)} className={`block text-sm w-full text-left px-3 py-1.5 rounded-md transition-colors ${selectedConcern === c.id || selectedConcern === c.slug ? "bg-secondary text-secondary-foreground" : "text-foreground hover:bg-muted"}`}>
                         {c.name}
                       </button>
                     ))}

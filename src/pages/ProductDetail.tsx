@@ -13,6 +13,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubscriptionDiscount, createSubscription } from "@/lib/subscriptions";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import PincodeChecker from "@/components/PincodeChecker";
+import { DraftPreviewBanner } from "@/components/DraftPreviewBanner";
+import { SEOHead } from "@/components/SEOHead";
+import { generateProductSchema } from "@/lib/seo";
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -107,6 +111,13 @@ const ProductDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title={product.name}
+        description={product.short_description || product.description}
+        image={product.image_url}
+        jsonLd={generateProductSchema(product)}
+      />
+      <DraftPreviewBanner />
       <Header />
       <main>
         <div className="container py-4">
@@ -254,6 +265,11 @@ const ProductDetail = () => {
                   <RotateCcw size={24} className="text-secondary mx-auto mb-1" />
                   <span className="text-xs text-muted-foreground">30 Day Returns</span>
                 </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-border">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Check Delivery & COD Availability</p>
+                <PincodeChecker />
               </div>
             </div>
           </div>

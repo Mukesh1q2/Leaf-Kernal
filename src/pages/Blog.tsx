@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Calendar, ArrowRight } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { SEOHead } from "@/components/SEOHead";
 
 const Blog = () => {
   const [posts, setPosts] = useState<any[]>([]);
@@ -18,6 +19,11 @@ const Blog = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Ayurvedic Wellness & Nutrition Blog"
+        description="Explore Ayurvedic wisdom, superfood recipes, healthy habit guides, and wellness tips from Leaf & Kernel."
+        url="https://leafandkernel.com/blog"
+      />
       <Header />
       <main>
         <div className="bg-primary py-12 text-center">

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { SEOHead } from "@/components/SEOHead";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[+]?[\d\s().-]{7,}$/;
@@ -55,6 +56,11 @@ const Contact = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Contact Customer Care"
+        description="Get in touch with the Leaf & Kernel customer wellness team for product questions, order support, and wholesale inquiries."
+        url="https://leafandkernel.com/contact"
+      />
       <Header />
       <main>
         <div className="bg-primary py-12 text-center">

@@ -1,12 +1,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  "https://leafandkernel.com",
+  "https://www.leafandkernel.com",
+  "http://localhost:8080",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -30,6 +45,25 @@ serve(async (req) => {
       throw new Error("Missing payment verification fields");
     }
 
+    // Verify order exists and belongs to authenticated user
+    const { data: existingOrder, error: orderCheckErr } = await supabase
+      .from("orders")
+      .select("id, status, user_id, loyalty_points_redeemed")
+      .eq("id", order_id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (orderCheckErr || !existingOrder) {
+      throw new Error("Order not found or access denied");
+    }
+
+    // Idempotency: if order is already confirmed, return success
+    if (existingOrder.status === "confirmed") {
+      return new Response(JSON.stringify({ success: true, order_id, message: "Order already confirmed" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Verify signature using Web Crypto API
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
@@ -47,8 +81,17 @@ serve(async (req) => {
       .join("");
 
     if (expectedSignature !== razorpay_signature) {
-      // Mark order as failed
-      await supabase.from("orders").update({ status: "payment_failed" }).eq("id", order_id);
+      // Mark order as cancelled and restore loyalty points if any were deducted
+      await supabase.from("orders").update({ status: "cancelled" }).eq("id", order_id).eq("user_id", user.id);
+      if (existingOrder.loyalty_points_redeemed && existingOrder.loyalty_points_redeemed > 0) {
+        await supabase.from("loyalty_points").insert({
+          user_id: user.id,
+          points: existingOrder.loyalty_points_redeemed,
+          type: "adjust",
+          order_id: order_id,
+          description: "Refund loyalty points for failed payment verification",
+        });
+      }
       throw new Error("Payment verification failed - invalid signature");
     }
 
@@ -56,7 +99,7 @@ serve(async (req) => {
     await supabase.from("orders").update({
       status: "confirmed",
       stripe_session_id: razorpay_payment_id,
-    }).eq("id", order_id);
+    }).eq("id", order_id).eq("user_id", user.id);
 
     // Clear cart
     await supabase.from("cart_items").delete().eq("user_id", user.id);
