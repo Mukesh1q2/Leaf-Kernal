@@ -38,6 +38,8 @@ WITH CHECK (
 );
 
 -- 4. Server-side referral creation (SECURITY DEFINER, invoker-scoped checks)
+ALTER TABLE public.referrals DROP CONSTRAINT IF EXISTS referrals_referral_code_key;
+
 CREATE OR REPLACE FUNCTION public.create_referral(p_email text)
 RETURNS uuid
 LANGUAGE plpgsql
@@ -51,8 +53,25 @@ DECLARE
 BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
   IF p_email IS NULL OR position('@' in p_email) = 0 THEN RAISE EXCEPTION 'Invalid email'; END IF;
+
+  -- Ensure the referrer has a referral code; generate one if missing
   SELECT code INTO v_code FROM public.referral_codes WHERE user_id = v_user;
-  INSERT INTO public.referrals (referrer_id, referred_email, code, status, reward_given)
+  IF v_code IS NULL THEN
+    v_code := 'LK' || upper(substr(replace(v_user::text, '-', ''), 1, 6));
+    BEGIN
+      INSERT INTO public.referral_codes (user_id, code)
+      VALUES (v_user, v_code)
+      ON CONFLICT (user_id) DO NOTHING;
+    EXCEPTION WHEN unique_violation THEN
+      v_code := 'LK' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+      INSERT INTO public.referral_codes (user_id, code)
+      VALUES (v_user, v_code)
+      ON CONFLICT (user_id) DO UPDATE SET code = EXCLUDED.code;
+    END;
+    SELECT code INTO v_code FROM public.referral_codes WHERE user_id = v_user;
+  END IF;
+
+  INSERT INTO public.referrals (referrer_id, referred_email, referral_code, status, reward_given)
   VALUES (v_user, lower(p_email), v_code, 'pending', false)
   RETURNING id INTO v_id;
   RETURN v_id;

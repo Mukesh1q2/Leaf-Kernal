@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
@@ -34,6 +34,7 @@ const Shop = () => {
   const [concerns, setConcerns] = useState<HealthConcern[]>([]);
   const [concernProductIds, setConcernProductIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedConcern, setSelectedConcern] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState("featured");
@@ -52,21 +53,35 @@ const Shop = () => {
     if (category) setSelectedCategory(category);
   }, [searchParams]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const [{ data: prods }, { data: cats }, { data: cons }] = await Promise.all([
-        supabase.from("products").select("*"),
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const [{ data: prods, error: pErr }, { data: cats, error: cErr }, { data: cons, error: hErr }] = await Promise.all([
+        supabase.from("products").select("*").eq("is_active", true),
         supabase.from("categories").select("*").order("sort_order"),
         supabase.from("health_concerns").select("*").order("sort_order"),
       ]);
+      if (pErr) console.error("Error fetching products:", pErr);
+      if (cErr) console.error("Error fetching categories:", cErr);
+      if (hErr) console.error("Error fetching health concerns:", hErr);
+      if (pErr && !prods) {
+        setFetchError("Unable to load product catalog. Please try again later.");
+      }
       setProducts(prods || []);
       setCategories(cats || []);
       setConcerns(cons || []);
+    } catch (err: any) {
+      console.error("Error loading shop data:", err);
+      setFetchError("Unable to load product catalog. Please try again later.");
+    } finally {
       setLoading(false);
-    };
-    fetchData();
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Fetch product IDs for selected health concern
   useEffect(() => {
@@ -261,7 +276,15 @@ const Shop = () => {
                   ))}
                 </div>
               )}
-              {!loading && filtered.length === 0 && (
+              {!loading && fetchError && (
+                <div className="text-center py-16">
+                  <p className="text-muted-foreground mb-4">{fetchError}</p>
+                  <button onClick={fetchData} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-forest-light transition-colors">
+                    Retry
+                  </button>
+                </div>
+              )}
+              {!loading && !fetchError && filtered.length === 0 && (
                 <div className="text-center py-16">
                   <p className="text-muted-foreground">No products found matching your filters.</p>
                 </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowLeft, Sparkles, ShoppingBag, RefreshCw, Loader2, Check } from "lucide-react";
@@ -35,14 +35,33 @@ const Quiz = () => {
   const { addToCart } = useCart();
   const [step, setStep] = useState(0);
   const [concerns, setConcerns] = useState<{ slug: string; name: string }[]>([]);
+  const [loadingConcerns, setLoadingConcerns] = useState(true);
+  const [concernsError, setConcernsError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<QuizAnswers>({ concerns: [], lifestyle: "", ageBand: "", format: "any" });
   const [results, setResults] = useState<ScoredProduct[] | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    supabase.from("health_concerns").select("slug,name").order("sort_order")
-      .then(({ data }) => setConcerns(data || []));
+  const fetchConcerns = useCallback(async () => {
+    setLoadingConcerns(true);
+    setConcernsError(null);
+    try {
+      const { data, error } = await supabase.from("health_concerns").select("slug,name").order("sort_order");
+      if (error) {
+        console.error("Failed to load health concerns:", error);
+        setConcernsError("Unable to load wellness goals. Please try again.");
+      }
+      setConcerns(data || []);
+    } catch (err: any) {
+      console.error("Failed to load health concerns:", err);
+      setConcernsError("Unable to load wellness goals. Please try again.");
+    } finally {
+      setLoadingConcerns(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchConcerns();
+  }, [fetchConcerns]);
 
   const totalSteps = 4;
   const canNext =
@@ -100,21 +119,39 @@ const Quiz = () => {
                     <>
                       <h2 className="text-2xl font-heading font-bold mb-1">What are your top wellness goals?</h2>
                       <p className="text-muted-foreground mb-6">Pick all that apply.</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        {concerns.map((c) => {
-                          const sel = answers.concerns.includes(c.slug);
-                          return (
-                            <button key={c.slug} onClick={() => {
-                              setAnswers((a) => ({ ...a, concerns: sel ? a.concerns.filter((x) => x !== c.slug) : [...a.concerns, c.slug] }));
-                            }} className={`p-4 rounded-xl border text-left transition-all ${sel ? "border-secondary bg-secondary/5 shadow-sm" : "border-border hover:border-secondary/50"}`}>
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium text-foreground">{c.name}</span>
-                                {sel && <Check size={16} className="text-secondary" />}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {loadingConcerns ? (
+                        <div className="grid grid-cols-2 gap-3 py-2">
+                          {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <div key={i} className="h-14 rounded-xl border border-border/50 animate-pulse bg-muted/40" />
+                          ))}
+                        </div>
+                      ) : concerns.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-muted-foreground mb-4">{concernsError || "No wellness goals available at the moment."}</p>
+                          <button
+                            onClick={fetchConcerns}
+                            className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-forest-light transition-colors"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          {concerns.map((c) => {
+                            const sel = answers.concerns.includes(c.slug);
+                            return (
+                              <button key={c.slug} onClick={() => {
+                                setAnswers((a) => ({ ...a, concerns: sel ? a.concerns.filter((x) => x !== c.slug) : [...a.concerns, c.slug] }));
+                              }} className={`p-4 rounded-xl border text-left transition-all ${sel ? "border-secondary bg-secondary/5 shadow-sm" : "border-border hover:border-secondary/50"}`}>
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium text-foreground">{c.name}</span>
+                                  {sel && <Check size={16} className="text-secondary" />}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </>
                   )}
                   {step === 1 && (
