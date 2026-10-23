@@ -25,7 +25,7 @@ vi.mock("@/integrations/supabase/client", () => {
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
       },
-      rpc: vi.fn((fnName: string, args: any) => {
+      rpc: vi.fn((fnName: string, args?: unknown) => {
         if (fnName === "update_feature_flag") {
           return Promise.resolve({ data: { success: true }, error: null });
         }
