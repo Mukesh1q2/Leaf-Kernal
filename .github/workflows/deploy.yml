@@ -43,7 +43,7 @@ jobs:
         run: npm run build
 
       - name: Upload production build artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: production-dist
@@ -53,7 +53,7 @@ jobs:
   deploy:
     name: Deploy to Production VPS
     needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Download production build artifact
@@ -70,6 +70,19 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
           set -euo pipefail
+
+          # Pre-flight check: validate required variables and secret without exposing values
+          MISSING_CONFIG=""
+          [ -z "${VPS_HOST:-}" ] && MISSING_CONFIG="${MISSING_CONFIG} VPS_HOST"
+          [ -z "${VPS_USER:-}" ] && MISSING_CONFIG="${MISSING_CONFIG} VPS_USER"
+          [ -z "${VPS_KNOWN_HOSTS:-}" ] && MISSING_CONFIG="${MISSING_CONFIG} VPS_KNOWN_HOSTS"
+          [ -z "${VPS_SSH_KEY:-}" ] && MISSING_CONFIG="${MISSING_CONFIG} VPS_SSH_KEY"
+
+          if [ -n "${MISSING_CONFIG}" ]; then
+            echo "ERROR: Deployment configuration missing required item(s):${MISSING_CONFIG}" >&2
+            echo "Please set the missing Actions Variables or Secrets in repository settings." >&2
+            exit 1
+          fi
 
           # Configure SSH with pinned host key
           mkdir -p ~/.ssh
