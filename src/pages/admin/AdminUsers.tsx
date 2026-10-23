@@ -8,18 +8,34 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Users, Shield, UserPlus, Trash2, Loader2, Crown } from "lucide-react";
+import { Users, Shield, UserPlus, Trash2, Loader2, Crown, AlertTriangle } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { useCmsAuth } from "@/components/admin/AdminLayout";
 
-type AppRole = Database["public"]["Enums"]["app_role"] | "editor";
+type AppRole = Database["public"]["Enums"]["app_role"];
+
+interface RoleAssignment {
+  id: string;
+  role: AppRole;
+  is_master: boolean;
+}
 
 interface UserWithRoles {
   user_id: string;
   full_name: string | null;
   phone: string | null;
-  roles: AppRole[];
+  roles: RoleAssignment[];
   masterRoles: Set<AppRole>;
 }
 
@@ -34,13 +50,13 @@ const ROLES: AppRole[] = [
 ];
 
 const roleBadgeColor: Record<string, string> = {
-  admin: "bg-red-100 text-red-800 border-red-200",
-  editor: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  moderator: "bg-blue-100 text-blue-800 border-blue-200",
-  user: "bg-gray-100 text-gray-800 border-gray-200",
-  content_manager: "bg-purple-100 text-purple-800 border-purple-200",
-  inventory_manager: "bg-amber-100 text-amber-800 border-amber-200",
-  customer_support: "bg-green-100 text-green-800 border-green-200",
+  admin: "bg-red-100 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800/40",
+  editor: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40",
+  moderator: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/40",
+  user: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
+  content_manager: "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/40",
+  inventory_manager: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40",
+  customer_support: "bg-green-100 text-green-800 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800/40",
 };
 
 const AdminUsers = () => {
@@ -54,48 +70,72 @@ const AdminUsers = () => {
   const [addRole, setAddRole] = useState<AppRole>("editor");
   const [adding, setAdding] = useState(false);
 
+  // In-app confirmation dialog for role removal
+  const [pendingRevoke, setPendingRevoke] = useState<{
+    userId: string;
+    roleId?: string;
+    role: AppRole;
+    userName: string;
+  } | null>(null);
+  const [revoking, setRevoking] = useState(false);
+
   const fetchUsers = async () => {
     setLoading(true);
-    // Get all profiles
-    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, phone");
-    // Get all roles including is_master
-    const { data: roles } = await supabase.from("user_roles").select("user_id, role, is_master");
+    try {
+      // Get all profiles
+      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, phone");
+      // Get all roles including primary key id and is_master
+      const { data: roles } = await supabase.from("user_roles").select("id, user_id, role, is_master");
 
-    if (!profiles) {
-      setLoading(false);
-      return;
-    }
-
-    const roleMap = new Map<string, AppRole[]>();
-    const masterMap = new Map<string, Set<AppRole>>();
-    (roles || []).forEach((r: any) => {
-      const existing = roleMap.get(r.user_id) || [];
-      existing.push(r.role);
-      roleMap.set(r.user_id, existing);
-      if (r.is_master) {
-        const masters = masterMap.get(r.user_id) || new Set();
-        masters.add(r.role);
-        masterMap.set(r.user_id, masters);
+      if (!profiles) {
+        setLoading(false);
+        return;
       }
-    });
 
-    const merged: UserWithRoles[] = profiles.map((p) => ({
-      user_id: p.user_id,
-      full_name: p.full_name,
-      phone: p.phone,
-      roles: roleMap.get(p.user_id) || [],
-      masterRoles: masterMap.get(p.user_id) || new Set(),
-    }));
+      const roleMap = new Map<string, RoleAssignment[]>();
+      const masterMap = new Map<string, Set<AppRole>>();
 
-    // Sort: master first, then users with roles, then alphabetically
-    merged.sort((a, b) => {
-      if (a.masterRoles.size > 0 && b.masterRoles.size === 0) return -1;
-      if (b.masterRoles.size > 0 && a.masterRoles.size === 0) return 1;
-      return b.roles.length - a.roles.length;
-    });
+      (roles || []).forEach((r: any) => {
+        const existing = roleMap.get(r.user_id) || [];
+        existing.push({
+          id: r.id,
+          role: r.role,
+          is_master: Boolean(r.is_master),
+        });
+        roleMap.set(r.user_id, existing);
 
-    setUsers(merged);
-    setLoading(false);
+        if (r.is_master) {
+          const masters = masterMap.get(r.user_id) || new Set();
+          masters.add(r.role);
+          masterMap.set(r.user_id, masters);
+        }
+      });
+
+      const merged: UserWithRoles[] = profiles.map((p) => ({
+        user_id: p.user_id,
+        full_name: p.full_name,
+        phone: p.phone,
+        roles: roleMap.get(p.user_id) || [],
+        masterRoles: masterMap.get(p.user_id) || new Set(),
+      }));
+
+      // Sort: master first, then users with roles, then alphabetically
+      merged.sort((a, b) => {
+        if (a.masterRoles.size > 0 && b.masterRoles.size === 0) return -1;
+        if (b.masterRoles.size > 0 && a.masterRoles.size === 0) return 1;
+        return b.roles.length - a.roles.length;
+      });
+
+      setUsers(merged);
+    } catch (err: any) {
+      toast({
+        title: "Error loading team",
+        description: err?.message || "Failed to load roles.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -141,7 +181,7 @@ const AdminUsers = () => {
 
     // Check if role already exists
     const existing = users.find((u) => u.user_id === userId);
-    if (existing?.roles.includes(addRole)) {
+    if (existing?.roles.some((r) => r.role === addRole)) {
       toast({
         title: "Role exists",
         description: `This user already has the ${addRole} role.`,
@@ -164,16 +204,18 @@ const AdminUsers = () => {
       });
       setAddOpen(false);
       setSelectedUserId("");
-      fetchUsers();
+      await fetchUsers();
     }
     setAdding(false);
   };
 
-  const removeRole = async (userId: string, role: AppRole) => {
-    const user = users.find((u) => u.user_id === userId);
-
+  const handleRequestRevoke = (
+    userId: string,
+    roleAssignment: RoleAssignment,
+    userName: string | null
+  ) => {
     // Master roles can never be removed via standard interface
-    if (user?.masterRoles.has(role)) {
+    if (roleAssignment.is_master) {
       toast({
         title: "Protected Role",
         description: "This is a protected Master Administrator role and cannot be deleted.",
@@ -183,7 +225,7 @@ const AdminUsers = () => {
     }
 
     // Non-master admins cannot delete admin roles
-    if (role === "admin" && !isMaster) {
+    if (roleAssignment.role === "admin" && !isMaster) {
       toast({
         title: "Permission Denied",
         description: "Only the Master Administrator can revoke Admin roles.",
@@ -192,19 +234,63 @@ const AdminUsers = () => {
       return;
     }
 
-    if (!confirm(`Are you sure you want to remove the "${role}" role from this user?`)) return;
+    setPendingRevoke({
+      userId,
+      roleId: roleAssignment.id,
+      role: roleAssignment.role,
+      userName: userName || "this team member",
+    });
+  };
 
-    const { error } = await supabase
-      .from("user_roles")
-      .delete()
-      .eq("user_id", userId)
-      .eq("role", role as any);
+  const handleConfirmRevoke = async () => {
+    if (!pendingRevoke) return;
+    const { userId, roleId, role, userName } = pendingRevoke;
+    setRevoking(true);
 
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Role removed", description: `Removed ${role} role successfully.` });
-      fetchUsers();
+    try {
+      // 1. Direct delete via primary key or user_id + role
+      let query = supabase.from("user_roles").delete();
+      if (roleId) {
+        query = query.eq("id", roleId);
+      } else {
+        query = query.eq("user_id", userId).eq("role", role as any);
+      }
+
+      const { data, error } = await query.select();
+
+      // 2. If direct delete encountered an error or affected 0 rows (silent RLS rejection)
+      if (error || (data && data.length === 0)) {
+        // Fallback to secure server RPC
+        const { data: rpcData, error: rpcError } = await supabase.rpc("remove_user_role", {
+          p_user_id: userId,
+          p_role: role,
+        });
+
+        if (rpcError) {
+          toast({
+            title: "Revocation Failed",
+            description: error?.message || rpcError.message || "Could not delete role.",
+            variant: "destructive",
+          });
+          setRevoking(false);
+          return;
+        }
+      }
+
+      toast({
+        title: "Role Revoked",
+        description: `Successfully removed ${role.replace(/_/g, " ")} role from ${userName}.`,
+      });
+      setPendingRevoke(null);
+      await fetchUsers();
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || "An unexpected error occurred while revoking role.",
+        variant: "destructive",
+      });
+    } finally {
+      setRevoking(false);
     }
   };
 
@@ -217,8 +303,8 @@ const AdminUsers = () => {
     );
   });
 
-  const adminCount = users.filter((u) => u.roles.includes("admin")).length;
-  const editorCount = users.filter((u) => u.roles.includes("editor") || u.roles.includes("content_manager")).length;
+  const adminCount = users.filter((u) => u.roles.some((r) => r.role === "admin")).length;
+  const editorCount = users.filter((u) => u.roles.some((r) => r.role === "editor" || r.role === "content_manager")).length;
   const totalWithRoles = users.filter((u) => u.roles.length > 0).length;
 
   return (
@@ -240,109 +326,107 @@ const AdminUsers = () => {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Assign Role to Team Member</DialogTitle>
+              <DialogTitle>Assign Role to User</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 pt-2">
+            <div className="space-y-4 pt-4">
               <div>
-                <Label>User (Select or enter Name / UUID)</Label>
+                <Label>User (Select from registered profiles or paste UUID)</Label>
                 <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a registered user..." />
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select a user..." />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
                     {users.map((u) => (
                       <SelectItem key={u.user_id} value={u.user_id}>
-                        {u.full_name || "Unnamed User"} ({u.user_id.slice(0, 8)}…)
+                        {u.full_name || "Unnamed"} ({u.user_id.slice(0, 8)}…)
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <div className="mt-2">
                   <Input
+                    placeholder="Or paste User UUID directly..."
                     value={selectedUserId}
                     onChange={(e) => setSelectedUserId(e.target.value)}
-                    placeholder="Or paste User UUID directly"
                     className="text-xs font-mono"
                   />
                 </div>
               </div>
               <div>
-                <Label>Role to Assign</Label>
+                <Label>Role</Label>
                 <Select value={addRole} onValueChange={(v) => setAddRole(v as AppRole)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="mt-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ROLES.filter((r) => (isMaster ? true : r !== "admin")).map((r) => (
-                      <SelectItem key={r} value={r}>
-                        {r === "admin"
-                          ? "Administrator (Full System Access)"
-                          : r === "editor"
-                          ? "Editor (Content & Catalog Only)"
-                          : r.replace(/_/g, " ")}
+                    {ROLES.map((r) => (
+                      <SelectItem key={r} value={r} disabled={r === "admin" && !isMaster}>
+                        <span className="capitalize">{r.replace(/_/g, " ")}</span>
+                        {r === "admin" && !isMaster && " (Master Admin Only)"}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {!isMaster && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    * Only Master Admins can assign full Administrator privileges.
+                {addRole === "admin" && !isMaster && (
+                  <p className="text-xs text-destructive mt-1">
+                    Only the Master Administrator can grant full Admin privileges.
                   </p>
                 )}
               </div>
               <Button onClick={addRoleToUser} disabled={adding || !selectedUserId} className="w-full">
-                {adding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Confirm Role Assignment
+                {adding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                Assign Role
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Master & Admins</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Team Members</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-red-700">{adminCount}</p>
+            <div className="text-2xl font-bold flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" /> {totalWithRoles}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Content Editors</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Administrators</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-emerald-700">{editorCount}</p>
+            <div className="text-2xl font-bold flex items-center gap-2">
+              <Crown className="h-5 w-5 text-amber-600" /> {adminCount}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Team with Roles</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Content Editors</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{totalWithRoles}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Total Customer Profiles</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{users.length}</p>
+            <div className="text-2xl font-bold flex items-center gap-2">
+              <Shield className="h-5 w-5 text-emerald-600" /> {editorCount}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <div>
+      {/* Search & Filter */}
+      <div className="flex items-center gap-4">
         <Input
-          placeholder="Filter by name or User ID..."
+          placeholder="Search team members by name or UUID..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm mb-4"
+          className="max-w-sm"
         />
       </div>
 
+      {/* Users Table */}
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -379,7 +463,7 @@ const AdminUsers = () => {
                           {hasMaster && (
                             <Badge
                               variant="outline"
-                              className="text-[10px] bg-amber-50 text-amber-800 border-amber-300 font-semibold flex items-center gap-1"
+                              className="text-[10px] bg-amber-50 text-amber-800 border-amber-300 font-semibold flex items-center gap-1 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40"
                             >
                               <Crown className="h-3 w-3 text-amber-600" /> Master Admin
                             </Badge>
@@ -390,23 +474,29 @@ const AdminUsers = () => {
                         {u.user_id.slice(0, 8)}…{u.user_id.slice(-4)}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1.5">
                           {u.roles.map((r) => {
-                            const isThisMaster = u.masterRoles.has(r);
+                            const isThisMaster = r.is_master;
                             return (
                               <Badge
-                                key={r}
+                                key={r.id || r.role}
                                 variant="outline"
-                                className={`text-xs ${roleBadgeColor[r] || "bg-gray-100"}`}
+                                className={`text-xs pl-2 pr-1.5 py-0.5 inline-flex items-center gap-1 ${roleBadgeColor[r.role] || "bg-gray-100"}`}
                               >
-                                {r.replace(/_/g, " ")}
+                                <span className="capitalize">{r.role.replace(/_/g, " ")}</span>
                                 {isThisMaster ? (
-                                  <Shield className="ml-1 h-3 w-3 text-amber-600" />
+                                  <Shield className="h-3 w-3 text-amber-600 ml-0.5" title="Protected Master Role" />
                                 ) : (
                                   <button
-                                    onClick={() => removeRole(u.user_id, r)}
-                                    className="ml-1.5 hover:text-destructive text-muted-foreground"
-                                    title="Revoke role"
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleRequestRevoke(u.user_id, r, u.full_name);
+                                    }}
+                                    className="p-0.5 rounded hover:bg-destructive/20 hover:text-destructive text-muted-foreground transition-colors cursor-pointer inline-flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-destructive"
+                                    title={`Revoke ${r.role} role`}
+                                    aria-label={`Revoke ${r.role} role`}
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </button>
@@ -437,6 +527,42 @@ const AdminUsers = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Confirmation Modal for Role Revocation (Replaces browser window.confirm) */}
+      <AlertDialog
+        open={Boolean(pendingRevoke)}
+        onOpenChange={(open) => !open && !revoking && setPendingRevoke(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <AlertDialogTitle className="font-heading">Revoke Role Assignment</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <p>
+                Are you sure you want to remove the{" "}
+                <strong className="text-foreground capitalize">"{pendingRevoke?.role.replace(/_/g, " ")}"</strong> role from{" "}
+                <strong className="text-foreground">{pendingRevoke?.userName}</strong>?
+              </p>
+              <p className="text-xs text-muted-foreground">
+                This action immediately revokes corresponding CMS permissions for this user account.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={revoking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmRevoke}
+              disabled={revoking}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-1.5"
+            >
+              {revoking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {revoking ? "Revoking..." : "Revoke Role"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
