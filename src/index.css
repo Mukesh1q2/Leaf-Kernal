@@ -15,33 +15,33 @@
     --popover: 45 33% 97%;
     --popover-foreground: 150 30% 12%;
 
-    --primary: 150 40% 18%;
+    --primary: 136 49% 16%;
     --primary-foreground: 45 33% 97%;
 
-    --secondary: 90 30% 45%;
-    --secondary-foreground: 45 33% 97%;
+    --secondary: 83 55% 38%;
+    --secondary-foreground: 45 33% 98%;
 
     --muted: 45 20% 92%;
-    --muted-foreground: 150 10% 45%;
+    --muted-foreground: 136 15% 42%;
 
     --accent: 38 40% 70%;
-    --accent-foreground: 150 30% 12%;
+    --accent-foreground: 136 49% 14%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 45 15% 88%;
     --input: 45 15% 88%;
-    --ring: 150 40% 18%;
+    --ring: 136 49% 16%;
 
     --radius: 0.75rem;
 
     --cream: 45 33% 97%;
     --cream-dark: 45 20% 92%;
-    --forest: 150 40% 18%;
-    --forest-light: 150 30% 28%;
-    --leaf: 90 30% 45%;
-    --leaf-light: 90 25% 60%;
+    --forest: 136 49% 16%;
+    --forest-light: 121 45% 26%;
+    --leaf: 83 55% 38%;
+    --leaf-light: 83 50% 55%;
     --gold: 38 40% 70%;
     --gold-light: 38 35% 85%;
 

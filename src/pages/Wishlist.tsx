@@ -6,6 +6,7 @@ import { useCart } from "@/contexts/CartContext";
 import { SEOHead } from "@/components/SEOHead";
 import { Heart, ShoppingBag, Trash2, Star, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ProductImage from "@/components/ProductImage";
 
 const Wishlist = () => {
   const { wishlistProducts, loading, removeFromWishlist } = useWishlist();
@@ -73,9 +74,10 @@ const Wishlist = () => {
                 >
                   <div className="relative aspect-square bg-muted/50 overflow-hidden">
                     <Link to={`/product/${product.slug}`}>
-                      <img
-                        src={product.image_url || "/placeholder.svg"}
-                        alt={product.name}
+                      <ProductImage
+                        src={product.image_url}
+                        slug={product.slug}
+                        name={product.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     </Link>

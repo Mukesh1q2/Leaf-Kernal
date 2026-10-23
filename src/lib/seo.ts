@@ -13,7 +13,7 @@ export const generateOrganizationSchema = () => ({
   ],
   "contactPoint": {
     "@type": "ContactPoint",
-    "telephone": "+91-1800-LEAF-KERNEL",
+    "telephone": "+91-8796745590",
     "contactType": "customer service",
     "areaServed": "IN",
     "availableLanguage": ["English", "Hindi"],

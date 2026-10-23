@@ -11,6 +11,7 @@ import PincodeChecker from "@/components/PincodeChecker";
 import CartBundleUpsell from "@/components/CartBundleUpsell";
 import { useLoyaltyBalance, useLoyaltySettings, computeMaxRedeemable, pointsToRupees } from "@/lib/loyalty";
 import { Star } from "lucide-react";
+import ProductImage from "@/components/ProductImage";
 
 declare global {
   interface Window {
@@ -185,7 +186,12 @@ const Cart = () => {
               {items.map(item => (
                 <div key={item.id} className="flex gap-4 p-4 bg-background border border-border rounded-xl">
                   <Link to={`/product/${item.product.slug}`} className="w-20 h-20 rounded-lg bg-cream-dark overflow-hidden shrink-0">
-                    <img src={item.product.image_url || "/placeholder.svg"} alt={item.product.name} className="w-full h-full object-cover" />
+                    <ProductImage
+                      src={item.product.image_url}
+                      slug={item.product.slug}
+                      name={item.product.name}
+                      className="w-full h-full object-cover"
+                    />
                   </Link>
                   <div className="flex-1 min-w-0">
                     <Link to={`/product/${item.product.slug}`} className="font-heading font-semibold text-foreground text-sm hover:text-secondary">{item.product.name}</Link>

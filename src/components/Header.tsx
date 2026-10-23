@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import SearchDialog from "@/components/SearchDialog";
 import NotificationBell from "@/components/NotificationBell";
 import { useLoyaltyBalance } from "@/lib/loyalty";
-import logo from "@/assets/logo.png";
+import uvediqLogo from "@/assets/uvediq-logo.png";
 
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -75,13 +75,17 @@ const Header = () => {
           Free shipping on orders above ₹999 🌿 Use code <span className="font-semibold">LEAF20</span> for 20% off
         </div>
 
-        <div className="container flex items-center justify-between h-16 md:h-20">
+        <div className="container flex items-center justify-between h-20 md:h-24 py-2">
           <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 text-foreground" aria-label="Toggle menu">
             {mobileOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
 
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <img src={logo} alt="Leaf & Kernel Superfoods" className="h-10 md:h-14 w-auto" />
+          <Link to="/" className="flex items-center gap-3 shrink-0 py-1" aria-label="UVEDIQ Home">
+            <img
+              src={uvediqLogo}
+              alt="UVEDIQ"
+              className="h-14 sm:h-16 md:h-20 w-auto object-contain transition-transform duration-200 hover:scale-105 drop-shadow-sm"
+            />
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">

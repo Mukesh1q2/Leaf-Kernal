@@ -9,41 +9,39 @@ import {
 import AdminSidebar from "./AdminSidebar";
 import { SESSION_TIMEOUT_MS } from "@/pages/admin/AdminLogin";
 import { useToast } from "@/hooks/use-toast";
+import {
+  canAccessRoute,
+  hasAnyCmsRole,
+  getPrimaryRoleBadge,
+} from "@/lib/cmsRoles";
 
-interface CmsAuthContextType {
+export interface CmsAuthContextType {
+  roles: string[];
   isAdmin: boolean;
   isEditor: boolean;
+  isContentManager: boolean;
+  isInventoryManager: boolean;
+  isCustomerSupport: boolean;
+  isModerator: boolean;
   isMaster: boolean;
 }
 
 const CmsAuthContext = createContext<CmsAuthContextType>({
+  roles: [],
   isAdmin: false,
   isEditor: false,
+  isContentManager: false,
+  isInventoryManager: false,
+  isCustomerSupport: false,
+  isModerator: false,
   isMaster: false,
 });
 
 export const useCmsAuth = () => useContext(CmsAuthContext);
 
-// Routes restricted strictly to full administrators (editors cannot access)
-const ADMIN_ONLY_ROUTES = [
-  "/admin/users",
-  "/admin/orders",
-  "/admin/customers",
-  "/admin/deliveries",
-  "/admin/subscriptions",
-  "/admin/coupons",
-  "/admin/settings",
-  "/admin/inquiries",
-  "/admin/abandoned-carts",
-  "/admin/analytics",
-  "/admin/loyalty",
-  "/admin/referrals",
-];
-
 const AdminLayout = () => {
   const { user, loading: authLoading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isEditor, setIsEditor] = useState(false);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [isMaster, setIsMaster] = useState(false);
   const [checkingRoles, setCheckingRoles] = useState(true);
   const navigate = useNavigate();
@@ -72,8 +70,7 @@ const AdminLayout = () => {
     const checkRoles = async () => {
       if (!user) {
         if (isMounted) {
-          setIsAdmin(false);
-          setIsEditor(false);
+          setUserRoles([]);
           setIsMaster(false);
           setCheckingRoles(false);
         }
@@ -83,27 +80,22 @@ const AdminLayout = () => {
       if (checkSessionTimeout()) return;
 
       try {
-        // Query user roles
         const { data: roles } = await supabase
           .from("user_roles")
           .select("role, is_master")
           .eq("user_id", user.id);
 
         const roleList = (roles || []).map((r) => r.role);
-        const hasAdminRole = roleList.includes("admin");
-        const hasEditorRole = roleList.includes("editor") || roleList.includes("content_manager");
         const hasMasterFlag = (roles || []).some((r) => r.is_master);
 
         if (isMounted) {
-          setIsAdmin(hasAdminRole);
-          setIsEditor(hasEditorRole);
+          setUserRoles(roleList);
           setIsMaster(hasMasterFlag);
           setCheckingRoles(false);
         }
       } catch {
         if (isMounted) {
-          setIsAdmin(false);
-          setIsEditor(false);
+          setUserRoles([]);
           setIsMaster(false);
           setCheckingRoles(false);
         }
@@ -119,31 +111,34 @@ const AdminLayout = () => {
     };
   }, [user, authLoading, checkSessionTimeout]);
 
+  const hasAccess = hasAnyCmsRole(userRoles);
+  const isAdmin = userRoles.includes("admin");
+  const isEditor = userRoles.includes("editor") || userRoles.includes("content_manager");
+  const isContentManager = userRoles.includes("content_manager");
+  const isInventoryManager = userRoles.includes("inventory_manager");
+  const isCustomerSupport = userRoles.includes("customer_support");
+  const isModerator = userRoles.includes("moderator");
+
   // Handle route protection
   useEffect(() => {
     if (checkingRoles || authLoading) return;
 
-    const hasAccess = isAdmin || isEditor;
     if (!hasAccess) {
       navigate("/admin/login", { replace: true });
       return;
     }
 
-    // If editor (not admin) attempts to access admin-only route
-    if (isEditor && !isAdmin) {
-      const isRestricted = ADMIN_ONLY_ROUTES.some((route) =>
-        location.pathname.startsWith(route)
-      );
-      if (isRestricted) {
-        toast({
-          title: "Permission Denied",
-          description: "This section is restricted to full administrators.",
-          variant: "destructive",
-        });
-        navigate("/admin", { replace: true });
-      }
+    // Granular route permission check
+    const allowed = canAccessRoute(userRoles, location.pathname);
+    if (!allowed) {
+      toast({
+        title: "Permission Denied",
+        description: "Your role does not have permission to access this section.",
+        variant: "destructive",
+      });
+      navigate("/admin", { replace: true });
     }
-  }, [isAdmin, isEditor, checkingRoles, authLoading, location.pathname, navigate, toast]);
+  }, [hasAccess, userRoles, checkingRoles, authLoading, location.pathname, navigate, toast]);
 
   if (authLoading || checkingRoles) {
     return (
@@ -153,10 +148,23 @@ const AdminLayout = () => {
     );
   }
 
-  if (!isAdmin && !isEditor) return null;
+  if (!hasAccess) return null;
+
+  const roleBadge = getPrimaryRoleBadge(userRoles, isMaster);
 
   return (
-    <CmsAuthContext.Provider value={{ isAdmin, isEditor, isMaster }}>
+    <CmsAuthContext.Provider
+      value={{
+        roles: userRoles,
+        isAdmin,
+        isEditor,
+        isContentManager,
+        isInventoryManager,
+        isCustomerSupport,
+        isModerator,
+        isMaster,
+      }}
+    >
       <SidebarProvider>
         <div className="min-h-screen flex w-full">
           <AdminSidebar />
@@ -165,15 +173,26 @@ const AdminLayout = () => {
               <div className="flex items-center">
                 <SidebarTrigger className="mr-4" />
                 <h1 className="font-heading font-semibold text-foreground">
-                  {isAdmin ? "Admin Dashboard" : "Content Editor Dashboard"}
+                  {isAdmin ? "Admin Dashboard" : `${roleBadge} Dashboard`}
                 </h1>
               </div>
               <div className="text-xs px-2.5 py-1 rounded-full font-medium border bg-muted/60 text-muted-foreground">
-                {isMaster ? "Master Admin" : isAdmin ? "Administrator" : "Editor"}
+                {roleBadge}
               </div>
             </header>
             <div className="p-6">
-              <Outlet context={{ isAdmin, isEditor, isMaster }} />
+              <Outlet
+                context={{
+                  roles: userRoles,
+                  isAdmin,
+                  isEditor,
+                  isContentManager,
+                  isInventoryManager,
+                  isCustomerSupport,
+                  isModerator,
+                  isMaster,
+                }}
+              />
             </div>
           </main>
         </div>

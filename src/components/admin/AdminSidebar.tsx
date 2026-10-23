@@ -11,6 +11,9 @@ import {
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useCmsAuth } from "./AdminLayout";
+import { canAccessRoute } from "@/lib/cmsRoles";
+
+// (sections definitions)
 
 const allSections = [
   {
@@ -84,14 +87,15 @@ const allSections = [
 ];
 
 const AdminSidebar = () => {
-  const { isAdmin } = useCmsAuth();
+  const { roles, isAdmin } = useCmsAuth();
 
-  // If not full admin, only show content sections
+  // Filter sections and items based on role-based access permissions
   const visibleSections = allSections
-    .filter((sec) => (isAdmin ? true : !sec.adminOnly))
     .map((sec) => ({
       ...sec,
-      items: sec.items.filter((item: any) => (isAdmin ? true : !item.adminOnly)),
+      items: sec.items.filter((item: any) =>
+        isAdmin ? true : canAccessRoute(roles, item.url)
+      ),
     }))
     .filter((sec) => sec.items.length > 0);
 

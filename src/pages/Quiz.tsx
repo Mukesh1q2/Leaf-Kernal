@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { recommendProducts, type QuizAnswers, type ScoredProduct } from "@/lib/quiz";
 import { trackActivity } from "@/lib/activity";
+import ProductImage from "@/components/ProductImage";
 
 const LIFESTYLES = [
   { id: "active", label: "Active", desc: "Workouts, sports, on the move" },
@@ -233,7 +234,12 @@ const Quiz = () => {
                   {results.map(({ product, reasons }, idx) => (
                     <motion.div key={product.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="bg-background border border-border rounded-2xl overflow-hidden flex flex-col">
                       <Link to={`/product/${product.slug}`} className="aspect-square bg-cream-dark overflow-hidden">
-                        <img src={product.image_url || "/placeholder.svg"} alt={product.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                        <ProductImage
+                          src={product.image_url}
+                          slug={product.slug}
+                          name={product.name}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                        />
                       </Link>
                       <div className="p-4 flex-1 flex flex-col">
                         <Link to={`/product/${product.slug}`} className="font-heading font-semibold text-foreground hover:text-secondary">{product.name}</Link>

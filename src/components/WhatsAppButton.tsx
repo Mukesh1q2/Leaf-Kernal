@@ -1,8 +1,8 @@
 import { MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const WHATSAPP_NUMBER = "919999999999"; // Replace with actual number
-const DEFAULT_MESSAGE = "Hi! I have a question about Leaf & Kernel products.";
+const WHATSAPP_NUMBER = "918796745590";
+const DEFAULT_MESSAGE = "Hi! I have a question about UVEDIQ · Leaf & Kernel products.";
 
 const WhatsAppButton = () => {
   const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(DEFAULT_MESSAGE)}`;

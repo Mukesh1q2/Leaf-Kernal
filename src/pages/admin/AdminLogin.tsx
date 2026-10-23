@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Leaf, Loader2 } from "lucide-react";
+import { hasAnyCmsRole } from "@/lib/cmsRoles";
 
 const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
 
@@ -21,26 +22,22 @@ const AdminLogin = () => {
 
   const checkCmsPrivileges = useCallback(async (userId: string): Promise<boolean> => {
     try {
-      // Check admin role
-      const { data: isAdmin } = await supabase.rpc("has_role", {
-        _user_id: userId,
-        _role: "admin",
-      });
-      if (isAdmin) return true;
+      // Query user_roles directly for all assigned roles
+      const { data: roles, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
 
-      // Check editor role
-      const { data: isEditor } = await supabase.rpc("has_role", {
-        _user_id: userId,
-        _role: "editor",
-      });
-      if (isEditor) return true;
+      if (error || !roles) {
+        // Fallback to has_cms_access RPC if direct query fails
+        const { data: hasAccess } = await supabase.rpc("has_cms_access", {
+          _user_id: userId,
+        });
+        return !!hasAccess;
+      }
 
-      // Check content_manager role as fallback
-      const { data: isContentMgr } = await supabase.rpc("has_role", {
-        _user_id: userId,
-        _role: "content_manager",
-      });
-      return !!isContentMgr;
+      const roleList = roles.map((r) => r.role);
+      return hasAnyCmsRole(roleList);
     } catch {
       return false;
     }

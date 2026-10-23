@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Star, ShoppingBag } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import ProductImage from "@/components/ProductImage";
 
 interface Product {
   id: string;
@@ -46,7 +47,12 @@ const ProductCarousel = ({ title, subtitle, products, loading, emptyText }: Prop
             <div key={product.id} className="group bg-background rounded-xl border border-border overflow-hidden hover:shadow-xl transition-all">
               <Link to={`/product/${product.slug}`}>
                 <div className="relative aspect-square bg-cream-dark overflow-hidden">
-                  <img src={product.image_url || "/placeholder.svg"} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <ProductImage
+                    src={product.image_url}
+                    slug={product.slug}
+                    name={product.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
                   {product.badge && (
                     <span className="absolute top-3 left-3 bg-secondary text-secondary-foreground text-xs font-bold px-2.5 py-1 rounded-full">{product.badge}</span>
                   )}

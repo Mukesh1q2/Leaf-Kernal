@@ -73,7 +73,23 @@ const Contact = () => {
               <h2 className="text-2xl font-heading font-bold text-foreground mb-6">Get in Touch</h2>
               <div className="space-y-6">
                 <div className="flex gap-4"><Mail size={24} className="text-secondary shrink-0 mt-1" /><div><h3 className="font-semibold text-foreground">Email</h3><p className="text-muted-foreground">hello@leafandkernel.com</p></div></div>
-                <div className="flex gap-4"><Phone size={24} className="text-secondary shrink-0 mt-1" /><div><h3 className="font-semibold text-foreground">Phone</h3><p className="text-muted-foreground">+91 98765 43210</p></div></div>
+                <div className="flex gap-4">
+                  <Phone size={24} className="text-secondary shrink-0 mt-1" />
+                  <div>
+                    <h3 className="font-semibold text-foreground">Phone &amp; WhatsApp</h3>
+                    <p className="text-muted-foreground flex flex-col sm:flex-row sm:gap-3">
+                      <a href="tel:+918796745590" className="hover:text-secondary transition-colors">+91 8796745590</a>
+                      <a
+                        href="https://wa.me/918796745590?text=Hi!%20I%20have%20a%20question%20about%20UVEDIQ%20products."
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-secondary font-medium hover:underline inline-flex items-center gap-1"
+                      >
+                        Chat on WhatsApp →
+                      </a>
+                    </p>
+                  </div>
+                </div>
                 <div className="flex gap-4"><MapPin size={24} className="text-secondary shrink-0 mt-1" /><div><h3 className="font-semibold text-foreground">Office</h3><p className="text-muted-foreground">Leaf & Kernel HQ, Bengaluru, Karnataka, India</p></div></div>
               </div>
             </div>

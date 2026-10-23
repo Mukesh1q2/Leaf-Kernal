@@ -17,6 +17,8 @@ import PincodeChecker from "@/components/PincodeChecker";
 import { DraftPreviewBanner } from "@/components/DraftPreviewBanner";
 import { SEOHead } from "@/components/SEOHead";
 import { generateProductSchema } from "@/lib/seo";
+import ProductImage from "@/components/ProductImage";
+import { getLocalFallbackImage } from "@/lib/productImages";
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -95,11 +97,13 @@ const ProductDetail = () => {
 
   const discount = product.original_price ? Math.round((1 - product.price / product.original_price) * 100) : 0;
 
+  const fallbackAsset = getLocalFallbackImage(product.slug || product.name);
+
   const gallery: string[] = [
     product.image_url,
     ...((product.gallery_urls as string[] | null) || []),
   ].filter((u): u is string => !!u);
-  if (gallery.length === 0) gallery.push("/placeholder.svg");
+  if (gallery.length === 0) gallery.push(fallbackAsset);
   const currentImage = gallery[Math.min(activeImage, gallery.length - 1)];
 
   const tabs = [
@@ -134,7 +138,12 @@ const ProductDetail = () => {
           <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
             <div>
               <div className="relative aspect-square bg-cream-dark rounded-2xl overflow-hidden cursor-zoom-in group" onClick={() => setZoomed(true)}>
-                <img src={currentImage} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                <ProductImage
+                  src={currentImage}
+                  slug={product.slug}
+                  name={product.name}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
                 {product.badge && (
                   <span className="absolute top-4 left-4 bg-secondary text-secondary-foreground text-sm font-bold px-3 py-1.5 rounded-full">{product.badge}</span>
                 )}
@@ -148,7 +157,13 @@ const ProductDetail = () => {
                       className={`aspect-square rounded-lg overflow-hidden border-2 transition ${i === activeImage ? "border-secondary" : "border-transparent hover:border-border"}`}
                       aria-label={`View image ${i + 1}`}
                     >
-                      <img src={url} alt={`${product.name} ${i + 1}`} className="w-full h-full object-cover" />
+                      <ProductImage
+                        src={url}
+                        slug={product.slug}
+                        name={product.name}
+                        imageIndex={i}
+                        className="w-full h-full object-cover"
+                      />
                     </button>
                   ))}
                 </div>
@@ -156,7 +171,12 @@ const ProductDetail = () => {
             </div>
             {zoomed && (
               <div onClick={() => setZoomed(false)} className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in">
-                <img src={currentImage} alt={product.name} className="max-w-full max-h-full object-contain rounded-lg" />
+                <ProductImage
+                  src={currentImage}
+                  slug={product.slug}
+                  name={product.name}
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
               </div>
             )}
 
@@ -297,7 +317,12 @@ const ProductDetail = () => {
                 {relatedProducts.map(p => (
                   <Link key={p.id} to={`/product/${p.slug}`} className="group bg-background rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all">
                     <div className="aspect-square bg-cream-dark overflow-hidden">
-                      <img src={p.image_url || "/placeholder.svg"} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <ProductImage
+                        src={p.image_url}
+                        slug={p.slug}
+                        name={p.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
                     </div>
                     <div className="p-3">
                       <h3 className="font-heading font-semibold text-sm text-foreground">{p.name}</h3>
