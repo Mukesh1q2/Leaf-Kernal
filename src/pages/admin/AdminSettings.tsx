@@ -6,10 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Save } from "lucide-react";
+import { Save, SlidersHorizontal } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useCmsAuth } from "@/components/admin/AdminLayout";
+import { Link } from "react-router-dom";
 
 const AdminSettings = () => {
+  const { isMaster } = useCmsAuth();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,8 +48,20 @@ const AdminSettings = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-heading font-bold text-foreground">Settings</h2>
-        <Button onClick={saveAll} disabled={saving}><Save className="mr-2 h-4 w-4" /> {saving ? "Saving..." : "Save All"}</Button>
+        <div>
+          <h2 className="text-2xl font-heading font-bold text-foreground">Settings</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Configure store information, shipping thresholds, and social profiles</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {isMaster && (
+            <Button variant="outline" asChild>
+              <Link to="/admin/settings/features">
+                <SlidersHorizontal className="mr-2 h-4 w-4" /> Feature Controls
+              </Link>
+            </Button>
+          )}
+          <Button onClick={saveAll} disabled={saving}><Save className="mr-2 h-4 w-4" /> {saving ? "Saving..." : "Save All"}</Button>
+        </div>
       </div>
 
       <Tabs defaultValue="general">

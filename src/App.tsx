@@ -68,6 +68,7 @@ const AdminInquiries = lazy(() => import("./pages/admin/AdminInquiries"));
 const AdminDeliveries = lazy(() => import("./pages/admin/AdminDeliveries"));
 const AdminSubscriptions = lazy(() => import("./pages/admin/AdminSubscriptions"));
 const AdminMedia = lazy(() => import("./pages/admin/AdminMedia"));
+const AdminFeatureControls = lazy(() => import("./pages/admin/AdminFeatureControls"));
 
 const queryClient = new QueryClient();
 
@@ -128,6 +129,7 @@ const App = () => (
                       <Route path="testimonials" element={<AdminTestimonials />} />
                       <Route path="inventory" element={<AdminInventory />} />
                       <Route path="settings" element={<AdminSettings />} />
+                      <Route path="settings/features" element={<AdminFeatureControls />} />
                       <Route path="activity" element={<AdminActivity />} />
                       <Route path="analytics" element={<AdminAnalytics />} />
                       <Route path="users" element={<AdminUsers />} />

@@ -518,6 +518,48 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_flags: {
+        Row: {
+          category: string
+          description: string
+          is_configured: boolean
+          is_enabled: boolean
+          is_public: boolean
+          key: string
+          missing_dependency: string | null
+          name: string
+          updated_at: string
+          updated_by: string | null
+          updated_by_email: string | null
+        }
+        Insert: {
+          category: string
+          description: string
+          is_configured?: boolean
+          is_enabled?: boolean
+          is_public?: boolean
+          key: string
+          missing_dependency?: string | null
+          name: string
+          updated_at?: string
+          updated_by?: string | null
+          updated_by_email?: string | null
+        }
+        Update: {
+          category?: string
+          description?: string
+          is_configured?: boolean
+          is_enabled?: boolean
+          is_public?: boolean
+          key?: string
+          missing_dependency?: string | null
+          name?: string
+          updated_at?: string
+          updated_by?: string | null
+          updated_by_email?: string | null
+        }
+        Relationships: []
+      }
       faqs: {
         Row: {
           answer: string

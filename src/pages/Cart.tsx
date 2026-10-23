@@ -12,6 +12,7 @@ import CartBundleUpsell from "@/components/CartBundleUpsell";
 import { useLoyaltyBalance, useLoyaltySettings, computeMaxRedeemable, pointsToRupees } from "@/lib/loyalty";
 import { Star } from "lucide-react";
 import ProductImage from "@/components/ProductImage";
+import { emitCommerceEvent } from "@/lib/commerceEvents";
 
 declare global {
   interface Window {
@@ -109,6 +110,12 @@ const Cart = () => {
 
     setCheckoutLoading(true);
     try {
+      emitCommerceEvent({
+        eventName: "begin_checkout",
+        itemCount: items.length,
+        totalValue: total,
+      });
+
       const loaded = await loadRazorpayScript();
       if (!loaded) throw new Error("Failed to load payment gateway");
 
@@ -139,6 +146,14 @@ const Cart = () => {
             });
             if (verifyError) throw verifyError;
             if (verifyData?.error) throw new Error(verifyData.error);
+
+            emitCommerceEvent({
+              eventName: "purchase",
+              orderId: data.order_id,
+              totalValue: Number(data.amount) / 100,
+              itemCount: items.length,
+            });
+
             await clearCart();
             navigate("/checkout/success");
           } catch (e: any) {

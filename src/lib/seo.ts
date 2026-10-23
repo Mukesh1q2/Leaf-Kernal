@@ -22,28 +22,37 @@ export const generateOrganizationSchema = () => ({
 
 export const generateProductSchema = (product: any) => {
   if (!product) return null;
+  const canonicalUrl = `${SITE_URL}/product/${product.slug}`;
+  const images = [product.image_url, ...(product.gallery_urls || [])].filter(Boolean);
+  const availabilityUrl = (product.stock_quantity ?? 0) > 0
+    ? "https://schema.org/InStock"
+    : "https://schema.org/OutOfStock";
+
   return {
     "@context": "https://schema.org",
     "@type": "Product",
     "name": product.name,
-    "image": [product.image_url, ...(product.gallery_urls || [])].filter(Boolean),
-    "description": product.short_description || product.description,
+    "image": images.length > 0 ? images : [`${SITE_URL}/placeholder.svg`],
+    "description": product.short_description || product.description || product.name,
     "sku": product.id,
+    "mpn": product.slug,
+    "productID": product.id,
+    "url": canonicalUrl,
     "brand": {
       "@type": "Brand",
-      "name": BRAND_NAME,
+      "name": "UVEDIQ",
     },
     "offers": {
       "@type": "Offer",
-      "url": `${SITE_URL}/product/${product.slug}`,
+      "url": canonicalUrl,
       "priceCurrency": "INR",
-      "price": product.price,
+      "price": Number(product.price).toFixed(2),
       "priceValidUntil": "2027-12-31",
       "itemCondition": "https://schema.org/NewCondition",
-      "availability": (product.stock_quantity ?? 10) > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      "availability": availabilityUrl,
       "seller": {
         "@type": "Organization",
-        "name": BRAND_NAME,
+        "name": "Leaf & Kernel",
       },
     },
     ...(product.rating ? {

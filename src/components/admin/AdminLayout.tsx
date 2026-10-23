@@ -129,7 +129,7 @@ const AdminLayout = () => {
     }
 
     // Granular route permission check
-    const allowed = canAccessRoute(userRoles, location.pathname);
+    const allowed = canAccessRoute(userRoles, location.pathname, isMaster);
     if (!allowed) {
       toast({
         title: "Permission Denied",
@@ -138,7 +138,7 @@ const AdminLayout = () => {
       });
       navigate("/admin", { replace: true });
     }
-  }, [hasAccess, userRoles, checkingRoles, authLoading, location.pathname, navigate, toast]);
+  }, [hasAccess, userRoles, isMaster, checkingRoles, authLoading, location.pathname, navigate, toast]);
 
   if (authLoading || checkingRoles) {
     return (

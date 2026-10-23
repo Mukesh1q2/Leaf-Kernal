@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Package, ShoppingCart, FileText, HelpCircle,
   ArrowLeft, Star, Gift, Image, Users, Settings, BarChart3, Archive, ClipboardList, Shield,
   PackageOpen, ShoppingBag, Award, UserPlus, FolderTree, Heart, MapPin, MessageSquare, Truck,
-  RefreshCw
+  RefreshCw, SlidersHorizontal
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
@@ -82,20 +82,22 @@ const allSections = [
       { title: "Pincodes", url: "/admin/pincodes", icon: MapPin },
       { title: "Inquiries", url: "/admin/inquiries", icon: MessageSquare },
       { title: "Settings", url: "/admin/settings", icon: Settings },
+      { title: "Feature Controls", url: "/admin/settings/features", icon: SlidersHorizontal, masterOnly: true },
     ],
   },
 ];
 
 const AdminSidebar = () => {
-  const { roles, isAdmin } = useCmsAuth();
+  const { roles, isAdmin, isMaster } = useCmsAuth();
 
   // Filter sections and items based on role-based access permissions
   const visibleSections = allSections
     .map((sec) => ({
       ...sec,
-      items: sec.items.filter((item: any) =>
-        isAdmin ? true : canAccessRoute(roles, item.url)
-      ),
+      items: sec.items.filter((item: any) => {
+        if (item.masterOnly) return isMaster;
+        return isAdmin ? true : canAccessRoute(roles, item.url, isMaster);
+      }),
     }))
     .filter((sec) => sec.items.length > 0);
 

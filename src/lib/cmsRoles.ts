@@ -75,7 +75,12 @@ export const ROUTE_PERMISSIONS: Record<string, CmsRole[]> = {
 /**
  * Check if a set of roles can access a given route path.
  */
-export const canAccessRoute = (roles: string[], pathname: string): boolean => {
+export const canAccessRoute = (roles: string[], pathname: string, isMaster: boolean = false): boolean => {
+  // Feature controls route is strictly reserved for Master Admin only
+  if (pathname === "/admin/settings/features" || pathname.startsWith("/admin/settings/features")) {
+    return Boolean(isMaster);
+  }
+
   // Master or full admin can access all CMS routes
   if (roles.includes("admin")) return true;
 

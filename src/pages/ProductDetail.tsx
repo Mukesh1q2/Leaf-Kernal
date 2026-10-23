@@ -19,11 +19,14 @@ import { SEOHead } from "@/components/SEOHead";
 import { generateProductSchema } from "@/lib/seo";
 import ProductImage from "@/components/ProductImage";
 import { getLocalFallbackImage } from "@/lib/productImages";
+import { getExplainableRecommendations, type RecommendedProductWithReason } from "@/lib/recommendations";
+import { emitCommerceEvent } from "@/lib/commerceEvents";
+import { isFeatureEnabledSync } from "@/lib/featureFlags";
 
 const ProductDetail = () => {
   const { slug } = useParams();
   const [product, setProduct] = useState<any>(null);
-  const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
+  const [relatedProducts, setRelatedProducts] = useState<RecommendedProductWithReason[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
   const [loading, setLoading] = useState(true);
@@ -68,8 +71,24 @@ const ProductDetail = () => {
         setProduct(data);
         setActiveImage(0);
         trackActivity("view", data.id, { slug: data.slug });
-        const { data: related } = await supabase.from("products").select("*").eq("category_id", data.category_id).neq("id", data.id).limit(4);
-        setRelatedProducts(related || []);
+        emitCommerceEvent({
+          eventName: "view_item",
+          itemId: data.id,
+          itemName: data.name,
+          price: Number(data.price),
+        });
+
+        if (isFeatureEnabledSync("botanical_recommendations")) {
+          const { data: allActive } = await supabase
+            .from("products")
+            .select("*")
+            .eq("is_active", true);
+
+          const recs = getExplainableRecommendations(data, allActive || [], 4);
+          setRelatedProducts(recs);
+        } else {
+          setRelatedProducts([]);
+        }
       }
       setLoading(false);
     };
@@ -113,13 +132,17 @@ const ProductDetail = () => {
     { id: "benefits", label: "Benefits" },
   ];
 
+  const isStructuredDataEnabled = isFeatureEnabledSync("product_structured_data");
+  const isBotanicalRecsEnabled = isFeatureEnabledSync("botanical_recommendations");
+
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
         title={product.name}
         description={product.short_description || product.description}
         image={product.image_url}
-        jsonLd={generateProductSchema(product)}
+        canonicalUrl={`https://leafandkernel.com/product/${product.slug}`}
+        jsonLd={isStructuredDataEnabled ? generateProductSchema(product) : undefined}
       />
       <DraftPreviewBanner />
       <Header />
@@ -310,13 +333,13 @@ const ProductDetail = () => {
             </div>
           </div>
 
-          {relatedProducts.length > 0 && (
+          {isBotanicalRecsEnabled && relatedProducts.length > 0 && (
             <div className="mt-12">
               <h2 className="text-2xl font-heading font-bold text-foreground mb-6">You May Also Like</h2>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {relatedProducts.map(p => (
-                  <Link key={p.id} to={`/product/${p.slug}`} className="group bg-background rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all">
-                    <div className="aspect-square bg-cream-dark overflow-hidden">
+                {relatedProducts.map(({ product: p, reason }) => (
+                  <Link key={p.id} to={`/product/${p.slug}`} className="group bg-background rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all flex flex-col">
+                    <div className="aspect-square bg-cream-dark overflow-hidden relative">
                       <ProductImage
                         src={p.image_url}
                         slug={p.slug}
@@ -324,8 +347,11 @@ const ProductDetail = () => {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>
-                    <div className="p-3">
-                      <h3 className="font-heading font-semibold text-sm text-foreground">{p.name}</h3>
+                    <div className="p-3 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h3 className="font-heading font-semibold text-sm text-foreground">{p.name}</h3>
+                        <p className="text-[11px] text-secondary font-medium mt-1 line-clamp-1">{reason}</p>
+                      </div>
                       <div className="flex items-center gap-2 mt-2">
                         <span className="font-bold text-foreground">₹{p.price}</span>
                         {p.original_price && <span className="text-xs text-muted-foreground line-through">₹{p.original_price}</span>}
