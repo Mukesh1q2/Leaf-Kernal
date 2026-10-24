@@ -38,6 +38,11 @@ const AdminDeliveries = () => {
 
   const save = async () => {
     if (!editing) return;
+
+    if (editing.status === "cancelled" && ["shipped", "out_for_delivery", "delivered"].includes(form.status)) {
+      return toast.error("Cannot dispatch or deliver an order that is cancelled.");
+    }
+
     const payload: any = {
       order_id: editing.id,
       tracking_id: form.tracking_id || null,
@@ -86,13 +91,32 @@ const AdminDeliveries = () => {
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Update Delivery</DialogTitle></DialogHeader>
+          {editing?.status === "cancelled" && (
+            <div className="p-3 rounded bg-destructive/10 text-destructive text-xs font-medium border border-destructive/20">
+              Notice: This order is Cancelled. Fulfillment status cannot be set to Shipped, Out for Delivery, or Delivered.
+            </div>
+          )}
           <div className="space-y-3">
             <div><Label>Tracking ID</Label><Input value={form.tracking_id} onChange={(e) => setForm({ ...form, tracking_id: e.target.value })} /></div>
             <div><Label>Carrier</Label><Input value={form.carrier} onChange={(e) => setForm({ ...form, carrier: e.target.value })} placeholder="Delhivery, Shiprocket…" /></div>
             <div><Label>Status</Label>
               <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{STATUSES.map((s) => <SelectItem key={s} value={s} className="capitalize">{s.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {STATUSES.map((s) => {
+                    const isBlockedForCancelled = editing?.status === "cancelled" && ["shipped", "out_for_delivery", "delivered"].includes(s);
+                    return (
+                      <SelectItem
+                        key={s}
+                        value={s}
+                        disabled={isBlockedForCancelled}
+                        className="capitalize"
+                      >
+                        {s.replace(/_/g, " ")} {isBlockedForCancelled ? "(Blocked - Cancelled)" : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
               </Select>
             </div>
             <div><Label>Estimated Delivery</Label><Input type="date" value={form.estimated_delivery} onChange={(e) => setForm({ ...form, estimated_delivery: e.target.value })} /></div>

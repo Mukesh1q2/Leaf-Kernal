@@ -248,33 +248,32 @@ const AdminUsers = () => {
     setRevoking(true);
 
     try {
-      // 1. Direct delete via primary key or user_id + role
-      let query = supabase.from("user_roles").delete();
-      if (roleId) {
-        query = query.eq("id", roleId);
-      } else {
-        query = query.eq("user_id", userId).eq("role", role as any);
+      // Execute role revocation via secure database RPC that enforces authorization
+      // and atomically writes to admin_activity_log within the same transaction.
+      const { data: rpcData, error: rpcError } = await supabase.rpc("remove_user_role", {
+        p_user_id: userId,
+        p_role: role,
+      });
+
+      if (rpcError) {
+        toast({
+          title: "Revocation Failed",
+          description: rpcError.message || "Could not delete role.",
+          variant: "destructive",
+        });
+        setRevoking(false);
+        return;
       }
 
-      const { data, error } = await query.select();
-
-      // 2. If direct delete encountered an error or affected 0 rows (silent RLS rejection)
-      if (error || (data && data.length === 0)) {
-        // Fallback to secure server RPC
-        const { data: rpcData, error: rpcError } = await supabase.rpc("remove_user_role", {
-          p_user_id: userId,
-          p_role: role,
+      const result = rpcData as { success?: boolean; message?: string } | null;
+      if (result && result.success === false) {
+        toast({
+          title: "Revocation Rejected",
+          description: result.message || "Operation could not be completed.",
+          variant: "destructive",
         });
-
-        if (rpcError) {
-          toast({
-            title: "Revocation Failed",
-            description: error?.message || rpcError.message || "Could not delete role.",
-            variant: "destructive",
-          });
-          setRevoking(false);
-          return;
-        }
+        setRevoking(false);
+        return;
       }
 
       toast({

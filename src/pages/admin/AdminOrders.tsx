@@ -27,10 +27,29 @@ const AdminOrders = () => {
 
   useEffect(() => { fetchOrders(); }, []);
 
-  const updateStatus = async (id: string, status: string) => {
-    await supabase.from("orders").update({ status }).eq("id", id);
-    toast({ title: `Order updated to ${status}` });
-    fetchOrders();
+  const updateStatus = async (id: string, currentStatus: string, newStatus: string) => {
+    if (newStatus === currentStatus) return;
+
+    if (newStatus === "cancelled" && (currentStatus === "shipped" || currentStatus === "delivered")) {
+      toast({
+        title: "Invalid Transition",
+        description: `Cannot cancel an order that has already been ${currentStatus}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { error } = await supabase.from("orders").update({ status: newStatus }).eq("id", id);
+    if (error) {
+      toast({
+        title: "Update Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: `Order updated to ${newStatus}` });
+      fetchOrders();
+    }
   };
 
   const viewInvoice = async (order: any) => {
@@ -86,10 +105,22 @@ const AdminOrders = () => {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Select value={o.status} onValueChange={(v) => updateStatus(o.id, v)}>
+                    <Select value={o.status} onValueChange={(v) => updateStatus(o.id, o.status, v)}>
                       <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {statuses.map((s) => <SelectItem key={s} value={s} className="capitalize text-xs">{s}</SelectItem>)}
+                        {statuses.map((s) => {
+                          const isCancellationBlocked = s === "cancelled" && (o.status === "shipped" || o.status === "delivered");
+                          return (
+                            <SelectItem
+                              key={s}
+                              value={s}
+                              disabled={isCancellationBlocked}
+                              className="capitalize text-xs"
+                            >
+                              {s} {isCancellationBlocked ? "(Locked)" : ""}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </TableCell>

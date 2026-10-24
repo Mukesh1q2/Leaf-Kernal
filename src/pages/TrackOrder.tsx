@@ -44,27 +44,36 @@ const TrackOrder = () => {
           <>
             <p className="text-muted-foreground mb-8">Order #{order.id.slice(0, 8)} • Placed {format(new Date(order.created_at), "PPP")}</p>
 
-            <div className="bg-card border rounded-lg p-6 mb-6">
-              <div className="space-y-6">
-                {STEPS.map((s, i) => {
-                  const Icon = s.icon;
-                  const done = i <= currentIdx;
-                  const active = i === currentIdx;
-                  return (
-                    <div key={s.key} className="flex items-start gap-4">
-                      <div className={`mt-0.5 rounded-full p-2 ${done ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground"}`}>
-                        {done ? <CheckCircle2 size={20} /> : <Circle size={20} />}
-                      </div>
-                      <div className="flex-1">
-                        <p className={`font-semibold ${active ? "text-secondary" : done ? "text-foreground" : "text-muted-foreground"}`}>
-                          <Icon className="inline h-4 w-4 mr-2" />{s.label}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+            {order.status === "cancelled" ? (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 mb-6 text-center space-y-2">
+                <p className="text-lg font-heading font-bold text-destructive">Order Cancelled</p>
+                <p className="text-sm text-muted-foreground">
+                  This order has been cancelled and will not be dispatched. If payment was completed, any eligible refund will be credited in accordance with our policy.
+                </p>
               </div>
-            </div>
+            ) : (
+              <div className="bg-card border rounded-lg p-6 mb-6">
+                <div className="space-y-6">
+                  {STEPS.map((s, i) => {
+                    const Icon = s.icon;
+                    const done = i <= currentIdx;
+                    const active = i === currentIdx;
+                    return (
+                      <div key={s.key} className="flex items-start gap-4">
+                        <div className={`mt-0.5 rounded-full p-2 ${done ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground"}`}>
+                          {done ? <CheckCircle2 size={20} /> : <Circle size={20} />}
+                        </div>
+                        <div className="flex-1">
+                          <p className={`font-semibold ${active ? "text-secondary" : done ? "text-foreground" : "text-muted-foreground"}`}>
+                            <Icon className="inline h-4 w-4 mr-2" />{s.label}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {delivery && (
               <div className="bg-card border rounded-lg p-6">

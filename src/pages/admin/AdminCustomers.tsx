@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Users, Search, Download } from "lucide-react";
+import { generateSafeCsv } from "@/lib/adminReports";
 
 interface CustomerData {
   user_id: string;
@@ -22,23 +23,47 @@ const AdminCustomers = () => {
 
   useEffect(() => {
     const load = async () => {
-      // Get profiles
-      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, phone");
-      // Get orders grouped by user
-      const { data: orders } = await supabase.from("orders").select("user_id, total, created_at").order("created_at", { ascending: false });
+      // Use column-restricted customer_support_profiles view or secure RPC to strictly limit exposure for support staff
+      let finalProfiles: { user_id: string; full_name: string | null; phone: string | null }[] | null = null;
+      const { data: supportProfiles, error: supportErr } = await (supabase
+        .from("customer_support_profiles" as any) as any)
+        .select("user_id, full_name, phone");
+
+      if (!supportErr && supportProfiles) {
+        finalProfiles = supportProfiles;
+      } else {
+        // Fallback to secure RPC
+        const { data: rpcProfiles, error: rpcErr } = await (supabase.rpc as any)("get_customer_support_profiles");
+        if (!rpcErr && rpcProfiles) {
+          finalProfiles = rpcProfiles;
+        } else {
+          // Fallback for full admin or environments where view is pending
+          const { data: directProfiles } = await supabase
+            .from("profiles")
+            .select("user_id, full_name, phone");
+          finalProfiles = directProfiles;
+        }
+      }
+
+      // Get orders grouped by user (orders with user_id)
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("user_id, total, created_at")
+        .order("created_at", { ascending: false });
 
       const orderMap: Record<string, { count: number; spent: number; lastOrder: string | null }> = {};
-      (orders || []).forEach(o => {
+      (orders || []).forEach((o) => {
+        if (!o.user_id) return;
         if (!orderMap[o.user_id]) orderMap[o.user_id] = { count: 0, spent: 0, lastOrder: null };
         orderMap[o.user_id].count++;
-        orderMap[o.user_id].spent += Number(o.total);
+        orderMap[o.user_id].spent += Number(o.total) || 0;
         if (!orderMap[o.user_id].lastOrder) orderMap[o.user_id].lastOrder = o.created_at;
       });
 
-      const customerList: CustomerData[] = (profiles || []).map(p => ({
+      const customerList: CustomerData[] = (finalProfiles || []).map((p) => ({
         user_id: p.user_id,
-        full_name: p.full_name,
-        phone: p.phone,
+        full_name: p.full_name || null,
+        phone: p.phone || null,
         order_count: orderMap[p.user_id]?.count || 0,
         total_spent: orderMap[p.user_id]?.spent || 0,
         last_order: orderMap[p.user_id]?.lastOrder || null,
@@ -53,17 +78,30 @@ const AdminCustomers = () => {
   }, []);
 
   const filtered = search
-    ? customers.filter(c => (c.full_name || "").toLowerCase().includes(search.toLowerCase()) || (c.phone || "").includes(search))
+    ? customers.filter(
+        (c) =>
+          (c.full_name || "").toLowerCase().includes(search.toLowerCase()) ||
+          (c.phone || "").includes(search)
+      )
     : customers;
 
   const exportCSV = () => {
-    const headers = "Name,Phone,Orders,Total Spent,Last Order\n";
-    const rows = filtered.map(c =>
-      `"${c.full_name || ""}","${c.phone || ""}",${c.order_count},${c.total_spent},"${c.last_order ? new Date(c.last_order).toLocaleDateString() : ""}"`
-    ).join("\n");
-    const blob = new Blob([headers + rows], { type: "text/csv" });
+    const headers = ["Name", "Phone", "Orders", "Total Spent", "Last Order"];
+    const rows = filtered.map((c) => [
+      c.full_name || "Customer",
+      c.phone || "Not provided",
+      c.order_count,
+      Number(c.total_spent.toFixed(2)),
+      c.last_order ? new Date(c.last_order).toLocaleDateString() : "Never",
+    ]);
+    const csvContent = generateSafeCsv(headers, rows);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "customers.csv"; a.click();
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `customers_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const getSegment = (c: CustomerData) => {

@@ -721,7 +721,7 @@ export type Database = {
           id: string
           order_id: string
           price: number
-          product_id: string
+          product_id: string | null
           product_image: string | null
           product_name: string
           quantity: number
@@ -731,7 +731,7 @@ export type Database = {
           id?: string
           order_id: string
           price: number
-          product_id: string
+          product_id?: string | null
           product_image?: string | null
           product_name: string
           quantity: number
@@ -741,7 +741,7 @@ export type Database = {
           id?: string
           order_id?: string
           price?: number
-          product_id?: string
+          product_id?: string | null
           product_image?: string | null
           product_name?: string
           quantity?: number
@@ -773,11 +773,12 @@ export type Database = {
           loyalty_points_redeemed: number
           shipping: number | null
           status: string
+          stock_deducted: boolean
           stripe_session_id: string | null
           subtotal: number
           total: number
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           address_snapshot?: Json | null
@@ -788,11 +789,12 @@ export type Database = {
           loyalty_points_redeemed?: number
           shipping?: number | null
           status?: string
+          stock_deducted?: boolean
           stripe_session_id?: string | null
           subtotal: number
           total: number
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           address_snapshot?: Json | null
@@ -803,11 +805,12 @@ export type Database = {
           loyalty_points_redeemed?: number
           shipping?: number | null
           status?: string
+          stock_deducted?: boolean
           stripe_session_id?: string | null
           subtotal?: number
           total?: number
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1175,6 +1178,50 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          new_quantity: number
+          notes: string | null
+          previous_quantity: number
+          product_id: string
+          quantity_delta: number
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          new_quantity: number
+          notes?: string | null
+          previous_quantity: number
+          product_id: string
+          quantity_delta: number
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          new_quantity?: number
+          notes?: string | null
+          previous_quantity?: number
+          product_id?: string
+          quantity_delta?: number
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       testimonials: {
         Row: {
           city: string | null
@@ -1296,7 +1343,15 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      customer_support_profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          phone: string | null
+          user_id: string
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_adjust_loyalty: {
@@ -1418,6 +1473,38 @@ export type Database = {
       redeem_loyalty_points: {
         Args: { p_order_id: string; p_points: number }
         Returns: Json
+      }
+      adjust_product_stock: {
+        Args: {
+          p_new_quantity: number
+          p_notes?: string | null
+          p_product_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
+      remove_user_role: {
+        Args: {
+          p_role: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      update_feature_flag: {
+        Args: {
+          p_enabled: boolean
+          p_key: string
+        }
+        Returns: Json
+      }
+      get_customer_support_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          full_name: string | null
+          phone: string | null
+          user_id: string
+        }[]
       }
     }
     Enums: {
