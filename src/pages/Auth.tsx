@@ -159,10 +159,14 @@ const Auth = () => {
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
+      const destination = nextPath && nextPath !== "/" ? nextPath : "/account";
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("oauth_target", destination);
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: window.location.origin + nextPath,
+          redirectTo: window.location.origin + destination,
         },
       });
 
