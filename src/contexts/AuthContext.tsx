@@ -24,34 +24,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cleanHash = () => {
-      if (typeof window !== "undefined" && window.location.hash && window.location.hash.includes("access_token")) {
-        window.history.replaceState(null, "", window.location.pathname + window.location.search);
-      }
-    };
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-
-      if (session?.user && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
-        cleanHash();
-        const target = sessionStorage.getItem("oauth_target");
-        if (target) {
-          sessionStorage.removeItem("oauth_target");
-          window.location.href = target;
-        }
-      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-      if (session?.user) {
-        cleanHash();
-      }
     });
 
     return () => subscription.unsubscribe();

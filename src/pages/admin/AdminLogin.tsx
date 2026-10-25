@@ -47,14 +47,18 @@ const AdminLogin = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const verifySession = async (userId: string) => {
-      const hasAccess = await checkCmsPrivileges(userId);
+    const verifySession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        if (isMounted) setCheckingAuth(false);
+        return;
+      }
+
+      const hasAccess = await checkCmsPrivileges(session.user.id);
+
       if (!isMounted) return;
 
       if (hasAccess) {
-        if (typeof window !== "undefined" && window.location.hash.includes("access_token")) {
-          window.history.replaceState(null, "", window.location.pathname + window.location.search);
-        }
         localStorage.setItem("admin_session_start", Date.now().toString());
         navigate("/admin", { replace: true });
       } else {
@@ -69,25 +73,10 @@ const AdminLogin = () => {
       }
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user && (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED")) {
-        await verifySession(session.user.id);
-      } else if (!session) {
-        if (isMounted) setCheckingAuth(false);
-      }
-    });
-
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        await verifySession(session.user.id);
-      } else {
-        if (isMounted) setCheckingAuth(false);
-      }
-    });
+    verifySession();
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
     };
   }, [checkCmsPrivileges, navigate, toast]);
 
@@ -123,9 +112,6 @@ const AdminLogin = () => {
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem("oauth_target", "/admin/login");
-    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
