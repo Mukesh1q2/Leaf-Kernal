@@ -113,6 +113,15 @@ const AdminSettings = () => {
             <CardHeader><CardTitle className="text-sm">Shipping & Payment</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div><Label>Free Shipping Threshold (₹)</Label><Input type="number" value={settings.free_shipping_threshold || ""} onChange={(e) => update("free_shipping_threshold", e.target.value)} /></div>
+              <div className="p-3 rounded-lg border bg-muted/40 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Storefront Announcement Bar</p>
+                  <p className="text-xs text-muted-foreground">Manage the top promotional message, linked coupons, and schedule.</p>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/admin/announcements">Manage Bar</Link>
+                </Button>
+              </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 text-sm">
                   <Switch checked={settings.cod_enabled === "true"} onCheckedChange={(v) => update("cod_enabled", v ? "true" : "false")} />

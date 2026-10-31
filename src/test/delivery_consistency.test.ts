@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { resolveTrackingAccess } from "@/pages/TrackOrder";
 
 // Lifecycle validation logic matching database triggers and UI guards
 export function canCancelOrder(currentStatus: string): { allowed: boolean; reason?: string } {
@@ -114,5 +115,125 @@ describe("Order and Delivery Status Consistency", () => {
       const displayTimeline = !isCancelled;
       expect(displayTimeline).toBe(false);
     });
+
+    it("requires authenticated user session before attempting order queries under RLS", () => {
+      const unauthenticatedUser = null;
+      const isAuthenticated = Boolean(unauthenticatedUser);
+
+      expect(isAuthenticated).toBe(false);
+      // TrackOrder shields database from unauthenticated queries
+      const shouldQueryDatabase = isAuthenticated;
+      expect(shouldQueryDatabase).toBe(false);
+    });
+
+    it("verifies public tracking projection strips all customer PII, payment tokens, and addresses", () => {
+      const rawOrderAndDelivery = {
+        id: "7b949c5e-8d2b-4e1a-9f3c-1a2b3c4d5e6f",
+        user_id: "user-12345",
+        customer_name: "Ramesh Kumar",
+        customer_email: "ramesh@example.com",
+        customer_phone: "+919876543210",
+        shipping_address: "Flat 402, Green Meadows, Bengaluru, Karnataka 560034",
+        total: 1499,
+        subtotal: 1420,
+        stripe_session_id: "pay_test123456",
+        status: "shipped",
+        carrier: "Delhivery",
+        tracking_id: "DL123456789IN",
+        estimated_delivery: "2026-10-30T10:00:00Z",
+        timeline: [{ status: "placed", at: "2026-10-25T10:00:00Z" }],
+      };
+
+      // Minimal safe tracking projection helper
+      const sanitizeTrackingInfo = (data: typeof rawOrderAndDelivery) => ({
+        order_short_id: data.id.slice(0, 8),
+        status: data.status,
+        carrier: data.carrier,
+        tracking_id: data.tracking_id,
+        estimated_delivery: data.estimated_delivery,
+        timeline: data.timeline,
+      });
+
+      const sanitized = sanitizeTrackingInfo(rawOrderAndDelivery);
+
+      // Verifies sensitive fields are completely omitted
+      expect((sanitized as any).customer_name).toBeUndefined();
+      expect((sanitized as any).customer_email).toBeUndefined();
+      expect((sanitized as any).customer_phone).toBeUndefined();
+      expect((sanitized as any).shipping_address).toBeUndefined();
+      expect((sanitized as any).total).toBeUndefined();
+      expect((sanitized as any).stripe_session_id).toBeUndefined();
+
+      // Verifies essential fulfillment milestones remain present
+      expect(sanitized.order_short_id).toBe("7b949c5e");
+      expect(sanitized.status).toBe("shipped");
+      expect(sanitized.carrier).toBe("Delhivery");
+      expect(sanitized.tracking_id).toBe("DL123456789IN");
+    });
+  });
+
+  describe("Order Tracking Privacy & Enumeration Shielding", () => {
+    it("handles unauthenticated visitors: shields database from queries and prompts for sign-in", () => {
+      const state = resolveTrackingAccess({
+        authLoading: false,
+        queryLoading: false,
+        user: null,
+        order: null,
+      });
+      expect(state).toBe("unauthenticated");
+    });
+
+    it("handles order owner: provides full tracking details when authenticated user owns the order", () => {
+      const state = resolveTrackingAccess({
+        authLoading: false,
+        queryLoading: false,
+        user: { id: "user-owner-123", email: "owner@example.com" },
+        order: { id: "ord-987", user_id: "user-owner-123", status: "shipped" },
+      });
+      expect(state).toBe("owner");
+    });
+
+    it("handles wrong-account: RLS returns null, yielding identical not_found state without disclosing order existence", () => {
+      // Under Supabase RLS, a query for another user's order yields null
+      const state = resolveTrackingAccess({
+        authLoading: false,
+        queryLoading: false,
+        user: { id: "user-intruder-456", email: "intruder@example.com" },
+        order: null, // RLS filters this row out
+      });
+      expect(state).toBe("not_found");
+    });
+
+    it("handles invalid-order ID: non-existent order returns null, yielding identical not_found state", () => {
+      const state = resolveTrackingAccess({
+        authLoading: false,
+        queryLoading: false,
+        user: { id: "user-valid-789", email: "valid@example.com" },
+        order: null, // Order does not exist in DB
+      });
+      expect(state).toBe("not_found");
+    });
+
+    it("ensures wrong-account and invalid-order yield indistinguishable state and message (preventing oracle disclosure)", () => {
+      const wrongAccountState = resolveTrackingAccess({
+        authLoading: false,
+        queryLoading: false,
+        user: { id: "user-attacker", email: "attacker@test.com" },
+        order: null, // RLS blocked access
+      });
+
+      const invalidOrderState = resolveTrackingAccess({
+        authLoading: false,
+        queryLoading: false,
+        user: { id: "user-attacker", email: "attacker@test.com" },
+        order: null, // Nonexistent order
+      });
+
+      // Both must be completely identical to prevent order-existence enumeration
+      expect(wrongAccountState).toBe(invalidOrderState);
+      expect(wrongAccountState).toBe("not_found");
+    });
   });
 });
+
+

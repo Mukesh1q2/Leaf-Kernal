@@ -9,6 +9,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
 import ProductImage from "@/components/ProductImage";
+import ProductCouponBadge from "@/components/ProductCouponBadge";
+import { fetchStorefrontPromotions, isOfferEligibleForProduct, type StorefrontCoupon } from "@/lib/couponPromotions";
 
 interface Product {
   id: string;
@@ -33,6 +35,7 @@ const Shop = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [concerns, setConcerns] = useState<HealthConcern[]>([]);
+  const [promotions, setPromotions] = useState<StorefrontCoupon[]>([]);
   const [concernProductIds, setConcernProductIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -58,10 +61,11 @@ const Shop = () => {
     setLoading(true);
     setFetchError(null);
     try {
-      const [{ data: prods, error: pErr }, { data: cats, error: cErr }, { data: cons, error: hErr }] = await Promise.all([
+      const [{ data: prods, error: pErr }, { data: cats, error: cErr }, { data: cons, error: hErr }, activePromos] = await Promise.all([
         supabase.from("products").select("*").eq("is_active", true),
         supabase.from("categories").select("*").order("sort_order"),
         supabase.from("health_concerns").select("*").order("sort_order"),
+        fetchStorefrontPromotions(),
       ]);
       if (pErr) console.error("Error fetching products:", pErr);
       if (cErr) console.error("Error fetching categories:", cErr);
@@ -72,6 +76,7 @@ const Shop = () => {
       setProducts(prods || []);
       setCategories(cats || []);
       setConcerns(cons || []);
+      setPromotions(activePromos || []);
     } catch (err: any) {
       console.error("Error loading shop data:", err);
       setFetchError("Unable to load product catalog. Please try again later.");
@@ -268,6 +273,16 @@ const Shop = () => {
                           <span className="text-sm font-medium text-foreground">{product.rating}</span>
                           <span className="text-xs text-muted-foreground">({product.review_count})</span>
                         </div>
+                        {(() => {
+                          const applicableOffer = promotions.find((o) =>
+                            isOfferEligibleForProduct(o, product.id, product.category_id)
+                          );
+                          return applicableOffer ? (
+                            <div className="mt-2">
+                              <ProductCouponBadge compact offer={applicableOffer} />
+                            </div>
+                          ) : null;
+                        })()}
                         <div className="flex items-center justify-between mt-3">
                           <div className="flex items-center gap-2">
                             <span className="text-lg font-bold text-foreground">₹{product.price}</span>

@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Package, ShoppingCart, FileText, HelpCircle,
   ArrowLeft, Star, Gift, Image, Users, Settings, BarChart3, Archive, ClipboardList, Shield,
   PackageOpen, ShoppingBag, Award, UserPlus, FolderTree, Heart, MapPin, MessageSquare, Truck,
-  RefreshCw, SlidersHorizontal
+  RefreshCw, SlidersHorizontal, Megaphone
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
@@ -50,6 +50,7 @@ const allSections = [
     label: "Content",
     adminOnly: false,
     items: [
+      { title: "Announcement Bar", url: "/admin/announcements", icon: Megaphone },
       { title: "Media Library", url: "/admin/media", icon: Image },
       { title: "Blog", url: "/admin/blog", icon: FileText },
       { title: "FAQs", url: "/admin/faqs", icon: HelpCircle },

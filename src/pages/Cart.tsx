@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Loader2, Tag } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Loader2, Tag, Gift, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -13,11 +13,32 @@ import { useLoyaltyBalance, useLoyaltySettings, computeMaxRedeemable, pointsToRu
 import { Star } from "lucide-react";
 import ProductImage from "@/components/ProductImage";
 import { emitCommerceEvent } from "@/lib/commerceEvents";
+import {
+  validateCouponWithBackend,
+  fetchStorefrontPromotions,
+  formatDiscountLabel,
+  formatCouponTerms,
+  isOfferEligibleForProduct,
+  type StorefrontCoupon,
+  type CouponCartItem,
+} from "@/lib/couponPromotions";
+import { fetchFreeShippingThreshold } from "@/lib/announcements";
 
 declare global {
   interface Window {
     Razorpay: any;
   }
+}
+
+interface AppliedCouponInfo {
+  code: string;
+  discountAmount: number;
+  discountType: "percentage" | "fixed" | "free_shipping";
+  discountValue: number;
+  maxDiscount?: number | null;
+  freeShipping?: boolean;
+  displayTitle?: string | null;
+  displayMessage?: string | null;
 }
 
 const Cart = () => {
@@ -28,61 +49,88 @@ const Cart = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number; type: string } | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCouponInfo | null>(null);
+  const [availableOffers, setAvailableOffers] = useState<StorefrontCoupon[]>([]);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(999);
   const { balance: loyaltyBalance, tier } = useLoyaltyBalance();
   const loyaltySettings = useLoyaltySettings();
   const [redeemPoints, setRedeemPoints] = useState(0);
 
-  const shipping = subtotal >= 999 ? 0 : 79;
-  const discount = appliedCoupon
-    ? appliedCoupon.type === "percentage"
-      ? Math.round(subtotal * appliedCoupon.discount / 100)
-      : appliedCoupon.discount
-    : 0;
+  // Fetch free shipping threshold
+  useEffect(() => {
+    fetchFreeShippingThreshold().then((thresh) => {
+      if (thresh && thresh > 0) setFreeShippingThreshold(thresh);
+    });
+  }, []);
+
+  // Fetch active storefront promotions
+  useEffect(() => {
+    let mounted = true;
+    fetchStorefrontPromotions().then((offers) => {
+      if (mounted) {
+        // Filter down to offers that are applicable to the current cart items or all
+        const applicable = offers.filter((offer) => {
+          if (!offer.applicable_to || offer.applicable_to === "all") return true;
+          return items.some((item) =>
+            isOfferEligibleForProduct(offer, item.product_id, (item.product as any)?.category_id || null)
+          );
+        });
+        setAvailableOffers(applicable);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [items]);
+
+  const shipping = appliedCoupon?.freeShipping ? 0 : subtotal >= freeShippingThreshold ? 0 : 79;
+  const discount = appliedCoupon ? appliedCoupon.discountAmount : 0;
   const maxRedeemable = computeMaxRedeemable(loyaltyBalance, subtotal, loyaltySettings);
   const loyaltyDiscount = pointsToRupees(redeemPoints, loyaltySettings.redeemRate);
   const total = Math.max(subtotal + shipping - discount - loyaltyDiscount, 0);
 
-  const applyCoupon = async () => {
-    if (!couponCode.trim()) return;
+  const applyCoupon = async (overrideCode?: string) => {
+    const code = (overrideCode || couponCode).trim().toUpperCase();
+    if (!code) return;
     setCouponLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("coupons")
-        .select("*")
-        .eq("code", couponCode.trim().toUpperCase())
-        .eq("is_active", true)
-        .single();
 
-      if (error || !data) {
-        toast({ title: "Invalid coupon", description: "This coupon code is not valid.", variant: "destructive" });
-        setCouponLoading(false);
-        return;
-      }
+    const cartItemsPayload: CouponCartItem[] = items.map((i) => ({
+      product_id: i.product_id,
+      category_id: (i.product as any)?.category_id || null,
+      price: i.product?.price || 0,
+      quantity: i.quantity,
+    }));
 
-      if (data.valid_to && new Date(data.valid_to) < new Date()) {
-        toast({ title: "Coupon expired", description: "This coupon has expired.", variant: "destructive" });
-        setCouponLoading(false);
-        return;
-      }
+    const result = await validateCouponWithBackend(code, subtotal, cartItemsPayload, user?.id);
 
-      if (data.min_order_value && subtotal < Number(data.min_order_value)) {
-        toast({ title: "Minimum not met", description: `Minimum order of ₹${data.min_order_value} required.`, variant: "destructive" });
-        setCouponLoading(false);
-        return;
-      }
-
-      if (data.max_uses && (data.used_count || 0) >= data.max_uses) {
-        toast({ title: "Coupon exhausted", description: "This coupon has reached its usage limit.", variant: "destructive" });
-        setCouponLoading(false);
-        return;
-      }
-
-      setAppliedCoupon({ code: data.code, discount: Number(data.discount_value), type: data.discount_type });
-      toast({ title: "Coupon applied!", description: `${data.code} — ${data.discount_type === "percentage" ? `${data.discount_value}% off` : `₹${data.discount_value} off`}` });
-    } catch {
-      toast({ title: "Error", description: "Could not apply coupon.", variant: "destructive" });
+    if (!result.valid) {
+      toast({
+        title: "Coupon cannot be applied",
+        description: result.error || "This coupon code is not valid.",
+        variant: "destructive",
+      });
+      setCouponLoading(false);
+      return;
     }
+
+    setAppliedCoupon({
+      code: result.code || code,
+      discountAmount: Number(result.discount_amount) || 0,
+      discountType: result.discount_type || "percentage",
+      discountValue: Number(result.discount_value) || 0,
+      maxDiscount: result.max_discount,
+      freeShipping: Boolean(result.free_shipping),
+      displayTitle: result.display_title,
+      displayMessage: result.display_message,
+    });
+    setCouponCode(result.code || code);
+
+    toast({
+      title: "Coupon applied!",
+      description: `${result.code} applied successfully — saved ₹${(result.discount_amount || 0).toFixed(2)}${
+        result.free_shipping ? " (Free Shipping)" : ""
+      }`,
+    });
     setCouponLoading(false);
   };
 
@@ -120,7 +168,10 @@ const Cart = () => {
       if (!loaded) throw new Error("Failed to load payment gateway");
 
       const { data, error } = await supabase.functions.invoke("create-razorpay-order", {
-        body: { redeem_points: redeemPoints },
+        body: {
+          redeem_points: redeemPoints,
+          coupon_code: appliedCoupon?.code || undefined,
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -234,29 +285,102 @@ const Cart = () => {
               {/* Coupon Section */}
               <div className="mb-4 pb-4 border-b border-border">
                 {appliedCoupon ? (
-                  <div className="flex items-center justify-between bg-primary/10 rounded-lg px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <Tag size={14} className="text-primary" />
-                      <span className="text-sm font-medium text-primary">{appliedCoupon.code}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between bg-primary/10 rounded-lg px-3 py-2.5 border border-primary/20">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Tag size={15} className="text-primary shrink-0" />
+                        <div className="truncate">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-sm text-primary">{appliedCoupon.code}</span>
+                            <span className="text-[11px] font-semibold bg-primary text-primary-foreground px-1.5 py-0.2 rounded">
+                              {appliedCoupon.freeShipping
+                                ? "Free Shipping"
+                                : appliedCoupon.discountType === "percentage"
+                                ? `${appliedCoupon.discountValue}% OFF`
+                                : `₹${appliedCoupon.discountValue} OFF`}
+                            </span>
+                          </div>
+                          {appliedCoupon.displayTitle && (
+                            <p className="text-xs text-muted-foreground truncate">{appliedCoupon.displayTitle}</p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={removeCoupon}
+                        className="text-xs text-destructive hover:underline font-medium shrink-0 ml-2"
+                      >
+                        Remove
+                      </button>
                     </div>
-                    <button onClick={removeCoupon} className="text-xs text-destructive hover:underline">Remove</button>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Coupon code"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                      className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                    <button
-                      onClick={applyCoupon}
-                      disabled={couponLoading || !couponCode.trim()}
-                      className="px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
-                    >
-                      {couponLoading ? <Loader2 size={14} className="animate-spin" /> : "Apply"}
-                    </button>
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Coupon code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary font-mono uppercase"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => applyCoupon(couponCode)}
+                        disabled={couponLoading || !couponCode.trim()}
+                        className="px-4 py-2 text-sm font-medium bg-secondary text-secondary-foreground rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
+                      >
+                        {couponLoading ? <Loader2 size={14} className="animate-spin" /> : "Apply"}
+                      </button>
+                    </div>
+
+                    {availableOffers.length > 0 && (
+                      <div className="pt-2">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Gift size={13} className="text-primary" />
+                          <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                            Available Offers ({availableOffers.length})
+                          </span>
+                        </div>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                          {availableOffers.map((offer) => {
+                            const discountBadge = formatDiscountLabel(offer);
+                            const terms = formatCouponTerms(offer);
+                            return (
+                              <div
+                                key={offer.id}
+                                className="flex items-center justify-between p-2 rounded-lg bg-background border border-border hover:border-primary/40 transition-colors text-xs"
+                              >
+                                <div className="min-w-0 pr-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-primary">{discountBadge}</span>
+                                    <span className="font-mono text-muted-foreground font-semibold">
+                                      ({offer.code})
+                                    </span>
+                                  </div>
+                                  {offer.display_title && (
+                                    <p className="text-[11px] text-foreground font-medium truncate">
+                                      {offer.display_title}
+                                    </p>
+                                  )}
+                                  {terms && (
+                                    <p className="text-[10px] text-muted-foreground truncate">{terms}</p>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => applyCoupon(offer.code)}
+                                  disabled={couponLoading}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors shrink-0"
+                                >
+                                  Apply
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -270,7 +394,7 @@ const Cart = () => {
                   <div className="flex justify-between text-primary"><span>Loyalty ({redeemPoints} pts)</span><span className="font-medium">-₹{loyaltyDiscount.toFixed(2)}</span></div>
                 )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span className="font-medium text-foreground">{shipping === 0 ? "FREE" : `₹${shipping}`}</span></div>
-                {shipping > 0 && <p className="text-xs text-secondary">Add ₹{(999 - subtotal).toFixed(0)} more for free shipping</p>}
+                {shipping > 0 && <p className="text-xs text-secondary">Add ₹{(freeShippingThreshold - subtotal).toFixed(0)} more for free shipping</p>}
                 <div className="border-t border-border pt-3 flex justify-between text-base"><span className="font-semibold text-foreground">Total</span><span className="font-bold text-foreground">₹{total.toFixed(2)}</span></div>
               </div>
 

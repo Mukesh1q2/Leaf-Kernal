@@ -80,3 +80,78 @@ export function formatAuthError(error: any): string {
 
   return msg || "Authentication failed. Please try again.";
 }
+
+/**
+ * Strictly sanitizes redirect paths to prevent Open Redirect attacks (CWE-601).
+ * Only allows relative same-origin paths starting with a single '/' followed by valid path characters.
+ * Strictly blocks protocol-relative paths ('//'), backslash tricks ('/\\', '\\'),
+ * scheme specifications ('javascript:', 'data:', 'https:'), and encoded evasions.
+ */
+export function sanitizeRedirectPath(rawPath: string | null | undefined, fallback: string = "/"): string {
+  if (!rawPath || typeof rawPath !== "string") {
+    return fallback;
+  }
+
+  const trimmed = rawPath.trim();
+  if (!trimmed) {
+    return fallback;
+  }
+
+  // Quick reject for protocol-relative or backslash-based evasions and control chars
+  if (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/\\") ||
+    trimmed.startsWith("\\") ||
+    trimmed.includes("\r") ||
+    trimmed.includes("\n") ||
+    trimmed.includes("\0")
+  ) {
+    return fallback;
+  }
+
+  // Must start with exactly one leading slash
+  if (!trimmed.startsWith("/")) {
+    return fallback;
+  }
+
+  // Check for scheme presence before any query or hash
+  const pathPart = trimmed.split(/[?#]/)[0];
+  if (pathPart.includes(":") || pathPart.startsWith("//") || pathPart.startsWith("/\\")) {
+    return fallback;
+  }
+
+  // Check URL decoding to catch %2f%2f or %5c evasions
+  try {
+    const decoded = decodeURIComponent(trimmed);
+    if (
+      decoded.startsWith("//") ||
+      decoded.startsWith("/\\") ||
+      decoded.startsWith("\\") ||
+      decoded.split(/[?#]/)[0].includes(":")
+    ) {
+      return fallback;
+    }
+  } catch {
+    // Malformed URI sequence
+    return fallback;
+  }
+
+  try {
+    // Parse against a dummy local base
+    const parsed = new URL(trimmed, "http://localhost");
+    // Ensure origin is local and pathname starts with single '/'
+    if (
+      parsed.origin !== "http://localhost" ||
+      !parsed.pathname.startsWith("/") ||
+      parsed.pathname.startsWith("//") ||
+      parsed.pathname.startsWith("/\\")
+    ) {
+      return fallback;
+    }
+
+    return parsed.pathname + parsed.search + parsed.hash;
+  } catch {
+    return fallback;
+  }
+}
+

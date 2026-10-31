@@ -9,6 +9,7 @@ import SearchDialog from "@/components/SearchDialog";
 import NotificationBell from "@/components/NotificationBell";
 import { useLoyaltyBalance } from "@/lib/loyalty";
 import uvediqLogo from "@/assets/uvediq-logo.png";
+import StorefrontPromoStrip from "@/components/StorefrontPromoStrip";
 
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -71,9 +72,7 @@ const Header = () => {
   return (
     <>
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="bg-primary text-primary-foreground text-center text-sm py-2 font-body">
-          Free shipping on orders above ₹999 🌿 Use code <span className="font-semibold">LEAF20</span> for 20% off
-        </div>
+        <StorefrontPromoStrip />
 
         <div className="container flex items-center justify-between h-20 md:h-24 py-2">
           <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 text-foreground" aria-label="Toggle menu">

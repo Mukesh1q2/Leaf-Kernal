@@ -1,7 +1,10 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Star, ShoppingBag } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import ProductImage from "@/components/ProductImage";
+import ProductCouponBadge from "@/components/ProductCouponBadge";
+import { fetchStorefrontPromotions, isOfferEligibleForProduct, type StorefrontCoupon } from "@/lib/couponPromotions";
 
 interface Product {
   id: string;
@@ -13,6 +16,7 @@ interface Product {
   badge: string | null;
   rating: number | null;
   review_count: number | null;
+  category_id?: string | null;
 }
 
 interface Props {
@@ -25,6 +29,17 @@ interface Props {
 
 const ProductCarousel = ({ title, subtitle, products, loading, emptyText }: Props) => {
   const { addToCart } = useCart();
+  const [promotions, setPromotions] = useState<StorefrontCoupon[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchStorefrontPromotions().then((offers) => {
+      if (mounted) setPromotions(offers);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
   if (!loading && products.length === 0 && !emptyText) return null;
 
   return (
@@ -67,6 +82,16 @@ const ProductCarousel = ({ title, subtitle, products, loading, emptyText }: Prop
                   <span className="text-sm font-medium text-foreground">{product.rating}</span>
                   <span className="text-xs text-muted-foreground">({product.review_count})</span>
                 </div>
+                {(() => {
+                  const applicableOffer = promotions.find((o) =>
+                    isOfferEligibleForProduct(o, product.id, product.category_id)
+                  );
+                  return applicableOffer ? (
+                    <div className="mt-2">
+                      <ProductCouponBadge compact offer={applicableOffer} />
+                    </div>
+                  ) : null;
+                })()}
                 <div className="flex items-center justify-between mt-3">
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold text-foreground">₹{product.price}</span>

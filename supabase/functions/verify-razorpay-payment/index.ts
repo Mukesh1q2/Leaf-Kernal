@@ -48,7 +48,7 @@ serve(async (req) => {
     // Verify order exists and belongs to authenticated user
     const { data: existingOrder, error: orderCheckErr } = await supabase
       .from("orders")
-      .select("id, status, user_id, loyalty_points_redeemed")
+      .select("id, status, user_id, loyalty_points_redeemed, coupon_id")
       .eq("id", order_id)
       .eq("user_id", user.id)
       .single();
@@ -100,6 +100,18 @@ serve(async (req) => {
       status: "confirmed",
       stripe_session_id: razorpay_payment_id,
     }).eq("id", order_id).eq("user_id", user.id);
+
+    // Atomically increment coupon usage if a coupon was used
+    if (existingOrder.coupon_id) {
+      try {
+        await supabase.rpc("record_coupon_redemption", {
+          p_coupon_id: existingOrder.coupon_id,
+          p_order_id: existingOrder.id,
+        });
+      } catch (couponErr) {
+        console.warn("Failed to record coupon redemption:", couponErr);
+      }
+    }
 
     // Clear cart
     await supabase.from("cart_items").delete().eq("user_id", user.id);

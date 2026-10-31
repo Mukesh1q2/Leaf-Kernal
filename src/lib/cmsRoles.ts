@@ -60,6 +60,7 @@ export const ROUTE_PERMISSIONS: Record<string, CmsRole[]> = {
   "/admin/blog": ["admin", "editor", "content_manager"],
   "/admin/faqs": ["admin", "editor", "content_manager"],
   "/admin/banners": ["admin", "editor", "content_manager"],
+  "/admin/announcements": ["admin", "editor", "content_manager"],
   "/admin/testimonials": ["admin", "editor", "content_manager", "moderator"],
   "/admin/analytics": ["admin"],
   "/admin/abandoned-carts": ["admin", "customer_support"],

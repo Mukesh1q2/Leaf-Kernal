@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateRegistrationInput, formatAuthError } from "@/lib/authValidation";
+import { validateRegistrationInput, formatAuthError, sanitizeRedirectPath } from "@/lib/authValidation";
 
 describe("Email Registration Validation", () => {
   const validPayload = {
@@ -85,3 +85,57 @@ describe("Auth Error Message Formatting", () => {
     expect(msg).toContain("Too many requests");
   });
 });
+
+describe("Open Redirect Protection (CWE-601)", () => {
+  it("allows safe, relative same-origin paths", () => {
+    expect(sanitizeRedirectPath("/track/7b949c5e-8d2b-4e1a-9f3c-1a2b3c4d5e6f")).toBe("/track/7b949c5e-8d2b-4e1a-9f3c-1a2b3c4d5e6f");
+    expect(sanitizeRedirectPath("/account#orders")).toBe("/account#orders");
+    expect(sanitizeRedirectPath("/cart?coupon=LEAF20")).toBe("/cart?coupon=LEAF20");
+    expect(sanitizeRedirectPath("/shop")).toBe("/shop");
+  });
+
+  it("blocks protocol-relative open redirect attacks", () => {
+    expect(sanitizeRedirectPath("//evil.com")).toBe("/");
+    expect(sanitizeRedirectPath("//evil.com/phishing")).toBe("/");
+    expect(sanitizeRedirectPath("///evil.com")).toBe("/");
+  });
+
+  it("blocks backslash and Windows path normalization attacks", () => {
+    expect(sanitizeRedirectPath("/\\evil.com")).toBe("/");
+    expect(sanitizeRedirectPath("/\\\\evil.com")).toBe("/");
+    expect(sanitizeRedirectPath("\\evil.com")).toBe("/");
+    expect(sanitizeRedirectPath("\\\\evil.com")).toBe("/");
+  });
+
+  it("blocks external absolute URL schemes", () => {
+    expect(sanitizeRedirectPath("https://evil.com")).toBe("/");
+    expect(sanitizeRedirectPath("http://evil.com/login")).toBe("/");
+    expect(sanitizeRedirectPath("ftp://attacker.com")).toBe("/");
+  });
+
+  it("blocks dangerous script schemes", () => {
+    expect(sanitizeRedirectPath("javascript:alert(document.cookie)")).toBe("/");
+    expect(sanitizeRedirectPath("data:text/html,<script>alert(1)</script>")).toBe("/");
+    expect(sanitizeRedirectPath("vbscript:msgbox(1)")).toBe("/");
+  });
+
+  it("blocks URL-encoded evasions", () => {
+    expect(sanitizeRedirectPath("/%2f%2fevil.com")).toBe("/");
+    expect(sanitizeRedirectPath("/%5c%5cevil.com")).toBe("/");
+    expect(sanitizeRedirectPath("%2f%2fevil.com")).toBe("/");
+  });
+
+  it("blocks carriage return and newline header injection characters", () => {
+    expect(sanitizeRedirectPath("/test\r\nSet-Cookie:evil=1")).toBe("/");
+    expect(sanitizeRedirectPath("/test\nevil")).toBe("/");
+  });
+
+  it("safely falls back for null, undefined, and empty inputs", () => {
+    expect(sanitizeRedirectPath(null)).toBe("/");
+    expect(sanitizeRedirectPath(undefined)).toBe("/");
+    expect(sanitizeRedirectPath("")).toBe("/");
+    expect(sanitizeRedirectPath("   ")).toBe("/");
+    expect(sanitizeRedirectPath(null, "/custom-fallback")).toBe("/custom-fallback");
+  });
+});
+

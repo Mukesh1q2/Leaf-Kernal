@@ -7,7 +7,7 @@ import Footer from "@/components/Footer";
 import { Leaf, Loader2, MailCheck, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { validateRegistrationInput, formatAuthError } from "@/lib/authValidation";
+import { validateRegistrationInput, formatAuthError, sanitizeRedirectPath } from "@/lib/authValidation";
 
 type AuthMode = "email" | "phone";
 
@@ -31,10 +31,9 @@ const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const rawNext = searchParams.get("next");
-  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  const nextPath = sanitizeRedirectPath(rawNext, "/");
   const goNext = () => {
-    if (nextPath.startsWith("/")) window.location.href = nextPath;
-    else navigate("/");
+    navigate(nextPath, { replace: true });
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {

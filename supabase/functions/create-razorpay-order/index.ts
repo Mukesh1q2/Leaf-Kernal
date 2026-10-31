@@ -54,6 +54,7 @@ serve(async (req) => {
 
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const redeemPoints = Math.max(0, parseInt(body?.redeem_points ?? 0, 10) || 0);
+    const couponCode = typeof body?.coupon_code === "string" ? body.coupon_code.trim().toUpperCase() : null;
 
     let subtotal = 0;
     for (const item of cartItems) {
@@ -61,8 +62,6 @@ serve(async (req) => {
       if (!product) continue;
       subtotal += product.price * item.quantity;
     }
-
-    const shipping = subtotal >= 999 ? 0 : 79;
 
     // Loyalty redemption (server-validated)
     let loyaltyDiscount = 0;
@@ -83,7 +82,42 @@ serve(async (req) => {
       loyaltyDiscount = Math.round((loyaltyPointsApplied / Math.max(rate, 1)) * 100) / 100;
     }
 
-    const total = Math.max(subtotal + shipping - loyaltyDiscount, 0);
+    // Coupon discount (server-validated)
+    let couponDiscount = 0;
+    let validatedCouponId: string | null = null;
+    let freeShippingCoupon = false;
+
+    if (couponCode) {
+      const cartItemsPayload = cartItems.map((item: any) => ({
+        product_id: item.product_id,
+        category_id: item.products?.category_id || null,
+        price: item.products?.price || 0,
+        quantity: item.quantity,
+      }));
+
+      const { data: valResult, error: valErr } = await supabase.rpc("validate_coupon", {
+        p_code: couponCode,
+        p_subtotal: subtotal,
+        p_cart_items: cartItemsPayload,
+        p_user_id: user.id,
+      });
+
+      if (valErr || !valResult || !valResult.valid) {
+        throw new Error(valResult?.error || "Invalid or ineligible coupon code");
+      }
+
+      couponDiscount = Number(valResult.discount_amount) || 0;
+      validatedCouponId = valResult.coupon_id;
+      freeShippingCoupon = Boolean(valResult.free_shipping);
+    }
+
+    let shipping = subtotal >= 999 ? 0 : 79;
+    if (freeShippingCoupon) {
+      shipping = 0;
+    }
+
+    const totalDiscount = Math.min(subtotal, loyaltyDiscount + couponDiscount);
+    const total = Math.max(subtotal + shipping - totalDiscount, 0);
 
     // Create pending order in DB
     const { data: order, error: orderError } = await supabase
@@ -96,7 +130,10 @@ serve(async (req) => {
         status: "pending",
         loyalty_points_redeemed: loyaltyPointsApplied,
         loyalty_discount: loyaltyDiscount,
-        discount: loyaltyDiscount,
+        coupon_discount: couponDiscount,
+        coupon_code: couponCode,
+        coupon_id: validatedCouponId,
+        discount: totalDiscount,
       })
       .select()
       .single();

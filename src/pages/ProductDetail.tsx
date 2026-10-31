@@ -22,6 +22,7 @@ import { getLocalFallbackImage } from "@/lib/productImages";
 import { getExplainableRecommendations, type RecommendedProductWithReason } from "@/lib/recommendations";
 import { emitCommerceEvent } from "@/lib/commerceEvents";
 import { isFeatureEnabledSync } from "@/lib/featureFlags";
+import ProductOffersSection from "@/components/ProductOffersSection";
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -225,6 +226,10 @@ const ProductDetail = () => {
                     <span className="text-sm font-semibold text-secondary bg-leaf/10 px-2 py-1 rounded">{discount}% OFF</span>
                   </>
                 )}
+              </div>
+
+              <div className="mt-4">
+                <ProductOffersSection productId={product.id} categoryId={product.category_id} />
               </div>
 
               <div className="flex items-center gap-4 mt-6">

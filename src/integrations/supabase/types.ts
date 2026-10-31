@@ -122,6 +122,65 @@ export type Database = {
         }
         Relationships: []
       }
+      announcements: {
+        Row: {
+          announcement_copy: string
+          coupon_link_mode: string
+          coupon_template: string
+          created_at: string
+          ends_at: string | null
+          free_shipping_threshold: number
+          id: string
+          is_enabled: boolean
+          name: string
+          priority: number
+          selected_coupon_id: string | null
+          starts_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          announcement_copy?: string
+          coupon_link_mode?: string
+          coupon_template?: string
+          created_at?: string
+          ends_at?: string | null
+          free_shipping_threshold?: number
+          id?: string
+          is_enabled?: boolean
+          name: string
+          priority?: number
+          selected_coupon_id?: string | null
+          starts_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          announcement_copy?: string
+          coupon_link_mode?: string
+          coupon_template?: string
+          created_at?: string
+          ends_at?: string | null
+          free_shipping_threshold?: number
+          id?: string
+          is_enabled?: boolean
+          name?: string
+          priority?: number
+          selected_coupon_id?: string | null
+          starts_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_selected_coupon_id_fkey"
+            columns: ["selected_coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       banners: {
         Row: {
           bg_color: string | null
@@ -430,12 +489,18 @@ export type Database = {
           created_at: string
           discount_type: string
           discount_value: number
+          display_from: string | null
+          display_message: string | null
+          display_title: string | null
+          display_to: string | null
           first_order_only: boolean | null
           id: string
           is_active: boolean | null
+          max_discount: number | null
           max_uses: number | null
           min_order_value: number | null
           per_customer_limit: number | null
+          show_on_storefront: boolean
           updated_at: string
           used_count: number | null
           valid_from: string | null
@@ -448,12 +513,18 @@ export type Database = {
           created_at?: string
           discount_type?: string
           discount_value?: number
+          display_from?: string | null
+          display_message?: string | null
+          display_title?: string | null
+          display_to?: string | null
           first_order_only?: boolean | null
           id?: string
           is_active?: boolean | null
+          max_discount?: number | null
           max_uses?: number | null
           min_order_value?: number | null
           per_customer_limit?: number | null
+          show_on_storefront?: boolean
           updated_at?: string
           used_count?: number | null
           valid_from?: string | null
@@ -466,12 +537,18 @@ export type Database = {
           created_at?: string
           discount_type?: string
           discount_value?: number
+          display_from?: string | null
+          display_message?: string | null
+          display_title?: string | null
+          display_to?: string | null
           first_order_only?: boolean | null
           id?: string
           is_active?: boolean | null
+          max_discount?: number | null
           max_uses?: number | null
           min_order_value?: number | null
           per_customer_limit?: number | null
+          show_on_storefront?: boolean
           updated_at?: string
           used_count?: number | null
           valid_from?: string | null
@@ -766,6 +843,9 @@ export type Database = {
       orders: {
         Row: {
           address_snapshot: Json | null
+          coupon_code: string | null
+          coupon_discount: number
+          coupon_id: string | null
           created_at: string
           discount: number | null
           id: string
@@ -782,6 +862,9 @@ export type Database = {
         }
         Insert: {
           address_snapshot?: Json | null
+          coupon_code?: string | null
+          coupon_discount?: number
+          coupon_id?: string | null
           created_at?: string
           discount?: number | null
           id?: string
@@ -798,6 +881,9 @@ export type Database = {
         }
         Update: {
           address_snapshot?: Json | null
+          coupon_code?: string | null
+          coupon_discount?: number
+          coupon_id?: string | null
           created_at?: string
           discount?: number | null
           id?: string
@@ -1352,8 +1438,65 @@ export type Database = {
         }
         Relationships: []
       }
+      storefront_active_coupons: {
+        Row: {
+          applicable_ids: string[] | null
+          applicable_to: string | null
+          code: string
+          discount_type: string
+          discount_value: number
+          display_from: string | null
+          display_message: string | null
+          display_title: string | null
+          display_to: string | null
+          id: string
+          max_discount: number | null
+          min_order_value: number | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      get_storefront_promotions: {
+        Args: {
+          p_category_id?: string | null
+          p_product_id?: string | null
+        }
+        Returns: {
+          applicable_ids: string[] | null
+          applicable_to: string | null
+          code: string
+          discount_type: string
+          discount_value: number
+          display_from: string | null
+          display_message: string | null
+          display_title: string | null
+          display_to: string | null
+          id: string
+          max_discount: number | null
+          min_order_value: number | null
+          valid_from: string | null
+          valid_to: string | null
+        }[]
+      }
+      validate_coupon: {
+        Args: {
+          p_cart_items?: Json
+          p_code: string
+          p_subtotal: number
+          p_user_id?: string | null
+        }
+        Returns: Json
+      }
+      record_coupon_redemption: {
+        Args: {
+          p_coupon_id: string
+          p_order_id?: string | null
+        }
+        Returns: boolean
+      }
       admin_adjust_loyalty: {
         Args: { p_points: number; p_reason: string; p_user_id: string }
         Returns: undefined

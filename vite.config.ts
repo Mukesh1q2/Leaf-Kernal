@@ -10,6 +10,13 @@ export default defineConfig({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      "/supabase": {
+        target: "http://127.0.0.1:54321",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/supabase/, ""),
+      },
+    },
   },
   plugins: [react()],
   resolve: {
