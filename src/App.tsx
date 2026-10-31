@@ -110,6 +110,7 @@ const App = () => (
                     <Route path="/checkout/cancel" element={<CheckoutCancel />} />
                     <Route path="/referral" element={<ReferralProgram />} />
                     <Route path="/loyalty" element={<LoyaltyPoints />} />
+                    <Route path="/track" element={<TrackOrder />} />
                     <Route path="/track/:orderId" element={<TrackOrder />} />
                     <Route path="/quiz" element={<Quiz />} />
                     <Route path="/shipping-policy" element={<ShippingPolicy />} />

@@ -36,7 +36,7 @@ const footerLinks = {
     { label: "FAQs", to: "/faq" },
     { label: "Contact Us", to: "/contact" },
     { label: "My Account", to: "/account" },
-    { label: "Track Order", to: "/account" },
+    { label: "Track Order", to: "/track" },
     { label: "Shipping Policy", to: "/shipping-policy" },
     { label: "Return & Refund", to: "/return-policy" },
     { label: "Terms & Conditions", to: "/terms-conditions" },
