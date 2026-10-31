@@ -131,11 +131,11 @@ INSERT INTO public.products (
 ) VALUES
   (
     '33333333-3333-3333-3333-333333333301',
-    'Organic Ashwagandha KSM-66 Root Powder',
-    'organic-ashwagandha-ksm66',
+    'Pure Ayurvedic Ashwagandha KSM-66 Root Powder',
+    'pure-ayurvedic-ashwagandha-ksm66',
     'Premium full-spectrum root extract for stress relief, calm focus, and restorative sleep.',
-    'Harvested sustainably from organic roots in Rajasthan. Standardized to 5% withanolides.',
-    '100% Organic Ashwagandha (Withania somnifera) Root Powder',
+    'Harvested sustainably from cultivated roots in Rajasthan. Standardized to 5% withanolides.',
+    'Pure Ashwagandha (Withania somnifera) Root Powder',
     'Mix 1/2 tsp with warm milk, plant milk, or water before bedtime.',
     'Reduces cortisol levels, promotes calm nervous system, enhances muscle recovery.',
     649.00, 799.00,
@@ -477,14 +477,20 @@ ON CONFLICT (pincode) DO UPDATE SET
 
 -- 9. Site Settings
 INSERT INTO public.site_settings (key, value) VALUES
+  ('company_name', 'LEAF AND KERNEL SUPERFOODS COMPANY'),
+  ('business_address', 'Shop No. 4, Ground Floor, F-8/25, Sector 15, Rohini, New Delhi - 110089'),
+  ('company_address', 'Shop No. 4, Ground Floor, F-8/25, Sector 15, Rohini, New Delhi - 110089'),
+  ('gstin', '07AANFL1400G1ZO'),
+  ('company_gstin', '07AANFL1400G1ZO'),
+  ('fssai_number', '13326998000385'),
   ('store_name', 'Leaf & Kernel · UVEDIQ'),
   ('store_tagline', 'Plant-Powered Superfoods & Ayurvedic Wellness'),
   ('free_shipping_threshold', '999'),
-  ('cod_enabled', 'true'),
+  ('cod_enabled', 'false'),
   ('cod_fee', '49'),
-  ('contact_email', 'care@leafandkernel.com'),
-  ('support_phone', '+91 98765 43210'),
-  ('whatsapp_number', '+919876543210'),
+  ('contact_email', 'customercare@leafandkernel.com'),
+  ('support_phone', '+91 8796745590'),
+  ('whatsapp_number', '+918796745590'),
   ('maintenance_mode', 'false')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 

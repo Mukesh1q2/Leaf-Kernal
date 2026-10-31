@@ -52,9 +52,13 @@ const Footer = () => {
             <div className="mb-4">
               <img src={logoWhite} alt="Leaf & Kernel Superfoods" className="h-16 w-auto" />
             </div>
-            <p className="text-sm opacity-80 leading-relaxed mb-6">
+            <p className="text-sm opacity-80 leading-relaxed mb-3">
               UVEDIQ — plant-powered superfoods rooted in Ayurveda, crafted for modern life by Leaf &amp; Kernel Superfoods Company.
             </p>
+            <div className="text-xs opacity-70 leading-relaxed mb-6 space-y-1">
+              <p><strong>Reg. Office:</strong> Shop No. 4, Ground Floor, F-8/25, Sector 15, Rohini, New Delhi – 110089, India</p>
+              <p><strong>GSTIN:</strong> 07AANFL1400G1ZO · <strong>FSSAI:</strong> 13326998000385</p>
+            </div>
             <div className="flex gap-3">
               {socials.map(({ Icon, url, label }) => (
                 <a
@@ -97,7 +101,9 @@ const Footer = () => {
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm opacity-60">
             <span>FSSAI Licensed</span>
             <span>•</span>
-            <span>100% Organic Certified</span>
+            <span>GSTIN: 07AANFL1400G1ZO</span>
+            <span>•</span>
+            <span>100% Pure &amp; Plant-Based</span>
             <span>•</span>
             <span>Made in India 🇮🇳</span>
           </div>

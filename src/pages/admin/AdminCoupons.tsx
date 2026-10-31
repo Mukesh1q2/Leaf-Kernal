@@ -560,7 +560,7 @@ const AdminCoupons = () => {
                       <Input
                         value={form.display_message}
                         onChange={(e) => setForm({ ...form, display_message: e.target.value })}
-                        placeholder="e.g. Save 15% on all organic herbal teas"
+                        placeholder="e.g. Save 15% on all Ayurvedic wellness superfoods"
                       />
                       <span className="text-[10px] text-muted-foreground">Offer details or terms summary</span>
                     </div>

@@ -59,8 +59,13 @@ const ReturnRefundPolicy = () => (
       </ul>
 
       <h2>9. Contact Us</h2>
-      <p><strong>UVEDIQ</strong> — Leaf &amp; Kernel Superfoods Company<br />
-        Business Hours: Monday to Saturday, 10:00 AM – 6:00 PM (IST)</p>
+      <p>
+        <strong>LEAF AND KERNEL SUPERFOODS COMPANY</strong> (Brand: UVEDIQ)<br />
+        <strong>Registered Office:</strong> Shop No. 4, Ground Floor, F-8/25, Sector 15, Rohini, New Delhi – 110089, India (Landmark: Near Happy Associates)<br />
+        <strong>GSTIN:</strong> 07AANFL1400G1ZO · <strong>FSSAI:</strong> 13326998000385<br />
+        <strong>Customer Care:</strong> <a href="mailto:customercare@leafandkernel.com">customercare@leafandkernel.com</a> | +91 8796745590<br />
+        <strong>Business Hours:</strong> Monday to Saturday, 10:00 AM – 6:00 PM (IST)
+      </p>
     </main>
     <Footer />
   </div>

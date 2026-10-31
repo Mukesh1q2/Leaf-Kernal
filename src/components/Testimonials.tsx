@@ -1,27 +1,27 @@
 import { motion } from "framer-motion";
-import { Star, Quote } from "lucide-react";
+import { Sparkles, ShieldCheck, HeartHandshake } from "lucide-react";
 
-const testimonials = [
+const commitments = [
   {
-    name: "Priya Sharma",
-    city: "Mumbai",
-    product: "Ashwagandha Root Powder",
-    text: "I've been using this for 3 months and my stress levels have dropped significantly. Sleep quality improved within the first week!",
-    rating: 5,
+    icon: Sparkles,
+    badge: "Botanical Sourcing",
+    title: "Pure & Unadulterated",
+    desc: "Single-origin superfood powders and handpicked jumbo lotus seeds. No fillers, no chemical binders, and no hidden preservatives.",
+    highlight: "100% Plant Ingredients",
   },
   {
-    name: "Arjun Mehta",
-    city: "Bangalore",
-    product: "Moringa Leaf Powder",
-    text: "Incredible energy boost without the jitters. I add it to my morning smoothie and feel the difference all day long.",
-    rating: 5,
+    icon: ShieldCheck,
+    badge: "Quality Standards",
+    title: "Rigorous FSSAI Compliance",
+    desc: "Crafted in GMP-aligned certified facilities under strict food safety and hygiene protocols, with complete transparency in every batch.",
+    highlight: "Lab-Tested Standards",
   },
   {
-    name: "Sneha Patel",
-    city: "Delhi",
-    product: "Golden Turmeric Capsules",
-    text: "My joint pain has reduced remarkably. The quality is outstanding – you can tell these are genuinely pure ingredients.",
-    rating: 5,
+    icon: HeartHandshake,
+    badge: "Ayurvedic Heritage",
+    title: "Made for Daily Wellness",
+    desc: "Rooted in classical Ayurvedic botanical principles and packaged in convenient formats designed for effortless modern daily nutrition.",
+    highlight: "Clean Daily Nutrition",
   },
 ];
 
@@ -30,32 +30,42 @@ const Testimonials = () => {
     <section className="py-16 md:py-24 bg-muted">
       <div className="container">
         <div className="text-center mb-12">
-          <span className="text-secondary text-sm font-semibold uppercase tracking-widest">Real Stories</span>
+          <span className="text-secondary text-sm font-semibold uppercase tracking-widest">Our Quality Commitment</span>
           <h2 className="text-3xl md:text-4xl font-heading font-bold text-foreground mt-2">
-            What Our Community Says
+            The UVEDIQ Standard
           </h2>
+          <p className="text-muted-foreground text-sm max-w-xl mx-auto mt-2">
+            Pure green goodness and authentic Ayurvedic superfoods, crafted with complete integrity for your everyday wellness.
+          </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {testimonials.map((t, i) => (
+          {commitments.map((c, i) => (
             <motion.div
-              key={t.name}
+              key={c.title}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className="bg-background rounded-xl p-6 border border-border relative"
+              className="bg-background rounded-xl p-6 border border-border relative flex flex-col justify-between hover:shadow-md transition-shadow"
             >
-              <Quote size={32} className="text-leaf/20 absolute top-4 right-4" />
-              <div className="flex gap-0.5 mb-4">
-                {Array.from({ length: t.rating }).map((_, j) => (
-                  <Star key={j} size={16} className="fill-gold text-gold" />
-                ))}
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-forest-light/60 flex items-center justify-center mb-4 text-secondary">
+                  <c.icon size={24} />
+                </div>
+                <span className="text-xs font-semibold text-secondary uppercase tracking-wider block mb-1">
+                  {c.badge}
+                </span>
+                <h3 className="text-lg font-heading font-bold text-foreground mb-2">
+                  {c.title}
+                </h3>
+                <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+                  {c.desc}
+                </p>
               </div>
-              <p className="text-foreground leading-relaxed mb-4 text-sm">"{t.text}"</p>
-              <div className="border-t border-border pt-4">
-                <p className="font-heading font-semibold text-foreground text-sm">{t.name}</p>
-                <p className="text-xs text-muted-foreground">{t.city} · {t.product}</p>
+              <div className="border-t border-border pt-3 flex items-center justify-between text-xs font-medium text-foreground/80">
+                <span>Verification</span>
+                <span className="text-secondary font-semibold">{c.highlight}</span>
               </div>
             </motion.div>
           ))}

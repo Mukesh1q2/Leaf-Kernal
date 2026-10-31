@@ -77,11 +77,19 @@ const ProductCarousel = ({ title, subtitle, products, loading, emptyText }: Prop
                 <Link to={`/product/${product.slug}`}>
                   <h3 className="font-heading font-semibold text-sm text-foreground hover:text-secondary transition-colors line-clamp-1">{product.name}</h3>
                 </Link>
-                <div className="flex items-center gap-1 mt-2">
-                  <Star size={14} className="fill-gold text-gold" />
-                  <span className="text-sm font-medium text-foreground">{product.rating}</span>
-                  <span className="text-xs text-muted-foreground">({product.review_count})</span>
-                </div>
+                {product.review_count && product.review_count > 0 ? (
+                  <div className="flex items-center gap-1 mt-2">
+                    <Star size={14} className="fill-gold text-gold" />
+                    <span className="text-sm font-medium text-foreground">{product.rating}</span>
+                    <span className="text-xs text-muted-foreground">({product.review_count})</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 mt-2">
+                    <span className="text-[11px] font-semibold text-secondary bg-secondary/10 px-2 py-0.5 rounded-full">
+                      ✨ New Launch
+                    </span>
+                  </div>
+                )}
                 {(() => {
                   const applicableOffer = promotions.find((o) =>
                     isOfferEligibleForProduct(o, product.id, product.category_id)

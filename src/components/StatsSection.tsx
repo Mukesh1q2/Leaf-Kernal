@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
-import { Leaf, Users, Award, Truck } from "lucide-react";
+import { Leaf, Award, ShieldCheck, Truck } from "lucide-react";
 
 const stats = [
-  { icon: Leaf, value: "50+", label: "Superfoods", desc: "Pure plant-based formulations" },
-  { icon: Users, value: "25K+", label: "Happy Customers", desc: "Across India & beyond" },
-  { icon: Award, value: "100%", label: "Natural Ingredients", desc: "No fillers or additives" },
-  { icon: Truck, value: "500+", label: "Cities Delivered", desc: "Fast & free shipping" },
+  { icon: Leaf, value: "100%", label: "Plant-Based", desc: "Pure botanicals without fillers or additives" },
+  { icon: Award, value: "Pure", label: "Ayurvedic Heritage", desc: "Rooted in classical wellness traditions" },
+  { icon: ShieldCheck, value: "Lab-Tested", label: "Quality Assured", desc: "FSSAI licensed & standardized ingredients" },
+  { icon: Truck, value: "Pan-India", label: "Tracked Delivery", desc: "Fast & reliable doorstep dispatch" },
 ];
 
 const StatsSection = () => {

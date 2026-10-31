@@ -16,7 +16,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <SEOHead
         title="Plant-Powered Superfoods & Ayurvedic Wellness"
-        description="Shop certified organic Ayurvedic superfood blends, Ashwagandha, Moringa, Turmeric & herbal teas. Free shipping on orders above ₹999."
+        description="Shop pure, plant-powered Ayurvedic superfoods, Ashwagandha capsules, Moringa, Wheatgrass & Jumbo Makhana. Free shipping on orders above ₹999."
         url="https://leafandkernel.com/"
         jsonLd={generateOrganizationSchema()}
       />

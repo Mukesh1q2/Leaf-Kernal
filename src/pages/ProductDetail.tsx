@@ -208,15 +208,23 @@ const ProductDetail = () => {
               <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">{product.name}</h1>
               <p className="text-muted-foreground mt-2">{product.short_description}</p>
 
-              <div className="flex items-center gap-2 mt-4">
-                <div className="flex gap-0.5">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={18} className={i < Math.round(product.rating || 0) ? "fill-gold text-gold" : "text-border"} />
-                  ))}
+              {product.review_count && product.review_count > 0 ? (
+                <div className="flex items-center gap-2 mt-4">
+                  <div className="flex gap-0.5">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} size={18} className={i < Math.round(product.rating || 0) ? "fill-gold text-gold" : "text-border"} />
+                    ))}
+                  </div>
+                  <span className="text-sm font-medium">{product.rating}</span>
+                  <span className="text-sm text-muted-foreground">({product.review_count} reviews)</span>
                 </div>
-                <span className="text-sm font-medium">{product.rating}</span>
-                <span className="text-sm text-muted-foreground">({product.review_count} reviews)</span>
-              </div>
+              ) : (
+                <div className="flex items-center gap-2 mt-4">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-secondary bg-secondary/10 px-2.5 py-1 rounded-full">
+                    ✨ Newly Launched · 100% Pure Botanical Formulation
+                  </span>
+                </div>
+              )}
 
               <div className="flex items-baseline gap-3 mt-6">
                 <span className="text-3xl font-bold text-foreground">₹{product.price}</span>

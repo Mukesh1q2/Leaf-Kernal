@@ -67,9 +67,16 @@ const TermsConditions = () => (
       <h2>15. Governing Law</h2>
       <p>These Terms &amp; Conditions shall be governed by and interpreted in accordance with the laws of India. Any disputes shall be subject to the exclusive jurisdiction of the appropriate courts in India.</p>
 
-      <h2>16. Contact Us</h2>
-      <p><strong>UVEDIQ</strong> — Leaf &amp; Kernel Superfoods Company<br />
-        Business Hours: Monday to Saturday, 10:00 AM – 6:00 PM (IST)</p>
+      <h2>16. Contact Us &amp; Grievance Redressal</h2>
+      <p>
+        <strong>LEAF AND KERNEL SUPERFOODS COMPANY</strong> (Brand: UVEDIQ)<br />
+        <strong>Registered Office:</strong> Shop No. 4, Ground Floor, F-8/25, Sector 15, Rohini, New Delhi – 110089, India<br />
+        <em>Nearby Landmark: Near Happy Associates</em><br />
+        <strong>GSTIN:</strong> 07AANFL1400G1ZO · <strong>FSSAI License:</strong> 13326998000385<br />
+        <strong>Customer Care:</strong> <a href="mailto:customercare@leafandkernel.com">customercare@leafandkernel.com</a><br />
+        <strong>Support Phone:</strong> +91 8796745590<br />
+        <strong>Business Hours:</strong> Monday to Saturday, 10:00 AM – 6:00 PM (IST)
+      </p>
     </main>
     <Footer />
   </div>

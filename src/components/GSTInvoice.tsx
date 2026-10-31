@@ -29,21 +29,26 @@ const DEFAULT_GST_RATE = 0.18; // 18% GST
 
 const GSTInvoice = ({ order, items, onClose }: InvoiceProps) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
-  const [companyName, setCompanyName] = useState("Leaf & Kernel Naturals Pvt. Ltd.");
-  const [companyAddress, setCompanyAddress] = useState("No. 42, Koramangala, Bengaluru, Karnataka - 560034");
-  const [companyGstin, setCompanyGstin] = useState("29AABCL1234F1Z5");
+  const [companyName, setCompanyName] = useState("LEAF AND KERNEL SUPERFOODS COMPANY");
+  const [companyAddress, setCompanyAddress] = useState("Shop No. 4, Ground Floor, F-8/25, Sector 15, Rohini, New Delhi - 110089");
+  const [companyGstin, setCompanyGstin] = useState("07AANFL1400G1ZO");
 
   useEffect(() => {
     supabase
       .from("site_settings")
       .select("key, value")
-      .in("key", ["company_name", "company_address", "company_gstin"])
+      .in("key", ["company_name", "company_address", "company_gstin", "business_address", "gstin", "store_name"])
       .then(({ data }) => {
         if (data) {
           const map = new Map(data.map((r: any) => [r.key, r.value]));
           if (map.get("company_name")) setCompanyName(String(map.get("company_name")));
+          else if (map.get("store_name")) setCompanyName(String(map.get("store_name")));
+
           if (map.get("company_address")) setCompanyAddress(String(map.get("company_address")));
+          else if (map.get("business_address")) setCompanyAddress(String(map.get("business_address")));
+
           if (map.get("company_gstin")) setCompanyGstin(String(map.get("company_gstin")));
+          else if (map.get("gstin")) setCompanyGstin(String(map.get("gstin")));
         }
       });
   }, []);

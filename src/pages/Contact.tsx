@@ -72,7 +72,16 @@ const Contact = () => {
             <div>
               <h2 className="text-2xl font-heading font-bold text-foreground mb-6">Get in Touch</h2>
               <div className="space-y-6">
-                <div className="flex gap-4"><Mail size={24} className="text-secondary shrink-0 mt-1" /><div><h3 className="font-semibold text-foreground">Email</h3><p className="text-muted-foreground">hello@leafandkernel.com</p></div></div>
+                <div className="flex gap-4">
+                  <Mail size={24} className="text-secondary shrink-0 mt-1" />
+                  <div>
+                    <h3 className="font-semibold text-foreground">Email</h3>
+                    <p className="text-muted-foreground">
+                      <a href="mailto:customercare@leafandkernel.com" className="hover:text-secondary transition-colors">customercare@leafandkernel.com</a>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">hello@leafandkernel.com</p>
+                  </div>
+                </div>
                 <div className="flex gap-4">
                   <Phone size={24} className="text-secondary shrink-0 mt-1" />
                   <div>
@@ -88,9 +97,25 @@ const Contact = () => {
                         Chat on WhatsApp →
                       </a>
                     </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Mon–Sat, 10:00 AM – 6:00 PM IST</p>
                   </div>
                 </div>
-                <div className="flex gap-4"><MapPin size={24} className="text-secondary shrink-0 mt-1" /><div><h3 className="font-semibold text-foreground">Office</h3><p className="text-muted-foreground">Leaf & Kernel HQ, Bengaluru, Karnataka, India</p></div></div>
+                <div className="flex gap-4">
+                  <MapPin size={24} className="text-secondary shrink-0 mt-1" />
+                  <div>
+                    <h3 className="font-semibold text-foreground">Registered Office</h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      LEAF AND KERNEL SUPERFOODS COMPANY<br />
+                      Shop No. 4, Ground Floor, F-8/25, Sector 15,<br />
+                      Rohini, New Delhi, North Delhi, Delhi – 110089, India<br />
+                      <span className="text-xs text-muted-foreground/80">(Landmark: Near Happy Associates)</span>
+                    </p>
+                    <div className="mt-2 pt-2 border-t border-border/60 text-xs text-muted-foreground space-y-0.5">
+                      <p><strong>GSTIN:</strong> 07AANFL1400G1ZO</p>
+                      <p><strong>FSSAI License:</strong> 13326998000385</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             {submitted ? (

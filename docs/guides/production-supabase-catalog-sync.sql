@@ -41,8 +41,8 @@ INSERT INTO public.products (
     '/images/products/uvediq-ashwagandha-capsules-nutrition-label.jpg'
   ],
   'Best Seller',
-  4.9,
-  86,
+  0,
+  0,
   150,
   true,
   true
@@ -66,8 +66,8 @@ INSERT INTO public.products (
     '/images/products/uvediq-jumbo-makhana-benefits.png'
   ],
   'Top Rated',
-  4.95,
-  112,
+  0,
+  0,
   120,
   true,
   true
@@ -92,8 +92,8 @@ INSERT INTO public.products (
     '/images/products/uvediq-moringa-powder-nutrition.png'
   ],
   'New Launch',
-  4.9,
-  45,
+  0,
+  0,
   100,
   true,
   true
@@ -118,8 +118,8 @@ INSERT INTO public.products (
     '/images/products/uvediq-wheatgrass-powder-nutrition.png'
   ],
   'Superfood Hero',
-  4.92,
-  58,
+  0,
+  0,
   100,
   true,
   true
@@ -137,6 +137,8 @@ ON CONFLICT (slug) DO UPDATE SET
   image_url = EXCLUDED.image_url,
   gallery_urls = EXCLUDED.gallery_urls,
   badge = EXCLUDED.badge,
+  rating = EXCLUDED.rating,
+  review_count = EXCLUDED.review_count,
   stock_quantity = EXCLUDED.stock_quantity,
   is_active = true,
   is_featured = true;
@@ -150,5 +152,19 @@ WHERE slug NOT IN (
   'uvediq-moringa-powder-200g',
   'uvediq-wheatgrass-powder-200g'
 );
+
+-- 4. Update Official Registered Company Address, GSTIN, and Contact Settings
+INSERT INTO public.site_settings (key, value) VALUES
+  ('company_name', 'LEAF AND KERNEL SUPERFOODS COMPANY'),
+  ('business_address', 'Shop No. 4, Ground Floor, F-8/25, Sector 15, Rohini, New Delhi - 110089'),
+  ('company_address', 'Shop No. 4, Ground Floor, F-8/25, Sector 15, Rohini, New Delhi - 110089'),
+  ('gstin', '07AANFL1400G1ZO'),
+  ('company_gstin', '07AANFL1400G1ZO'),
+  ('fssai_number', '13326998000385'),
+  ('contact_email', 'customercare@leafandkernel.com'),
+  ('support_phone', '+91 8796745590'),
+  ('whatsapp_number', '+918796745590'),
+  ('cod_enabled', 'false')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 COMMIT;
