@@ -2,6 +2,40 @@
 -- Leaf & Kernel (UVEDIQ) Seed Data for Local Development & Testing
 -- ==============================================================================
 
+-- ==============================================================================
+-- SAFETY GUARD: Prevent seed.sql from ever executing on a live production database
+-- ==============================================================================
+DO $$
+DECLARE
+  v_db_name text := current_database();
+  v_is_prod boolean := false;
+BEGIN
+  -- 1. Check environment GUC settings if explicitly defined
+  IF current_setting('app.environment', true) = 'production'
+     OR current_setting('environment', true) = 'production' THEN
+    v_is_prod := true;
+  END IF;
+
+  -- 2. Check site_settings table if it designates production
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'site_settings'
+  ) THEN
+    IF EXISTS (
+      SELECT 1 FROM public.site_settings
+      WHERE key IN ('environment', 'app_environment', 'env')
+        AND lower(value) IN ('production', 'prod', 'live')
+    ) THEN
+      v_is_prod := true;
+    END IF;
+  END IF;
+
+  -- 3. Fail-safe: Abort if production environment is detected
+  IF v_is_prod THEN
+    RAISE EXCEPTION 'CRITICAL SECURITY ABORT: seed.sql contains local testing mock credentials and MUST NEVER be executed on a production Supabase instance.';
+  END IF;
+END $$;
+
 -- 1. Master Admin User in auth.users
 DO $$
 DECLARE

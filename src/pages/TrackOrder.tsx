@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { CheckCircle2, Circle, Package, Truck, Home, Clock, ShieldCheck, LogIn, HelpCircle } from "lucide-react";
+import { CheckCircle2, Circle, Package, Truck, Home, Clock, ShieldCheck, LogIn, HelpCircle, Search, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 const STEPS = [
@@ -36,37 +36,98 @@ export function resolveTrackingAccess({
 
 const TrackOrder = () => {
   const { orderId } = useParams();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const [order, setOrder] = useState<any>(null);
   const [delivery, setDelivery] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Guest order tracking input state
+  const [guestOrderId, setGuestOrderId] = useState(orderId || "");
+  const [guestEmail, setGuestEmail] = useState(searchParams.get("email") || "");
+  const [guestSearching, setGuestSearching] = useState(false);
+  const [guestError, setGuestError] = useState<string | null>(null);
+
+  const fetchGuestOrder = async (targetOrderId: string, targetEmail: string) => {
+    const cleanId = targetOrderId.trim();
+    const cleanEmail = targetEmail.trim().toLowerCase();
+    if (!cleanId || !cleanEmail) {
+      setGuestError("Please enter both your Order ID and billing email.");
+      return;
+    }
+
+    setGuestSearching(true);
+    setGuestError(null);
+    try {
+      const { data, error } = await supabase.rpc("track_order_public", {
+        p_order_id: cleanId,
+        p_email: cleanEmail,
+      });
+
+      if (error || !data) {
+        setGuestError("No order found matching this Order ID and email address. Please double check your details.");
+        setGuestSearching(false);
+        return;
+      }
+
+      setOrder({
+        id: data.order_id,
+        status: data.status,
+        created_at: data.created_at,
+        total: data.total,
+        recipient_name: data.recipient_name,
+        shipping_city: data.shipping_city,
+        shipping_state: data.shipping_state,
+      });
+
+      setDelivery({
+        carrier: data.carrier,
+        tracking_id: data.tracking_id,
+        status: data.delivery_status,
+        estimated_delivery: data.estimated_delivery,
+        timeline: data.timeline || [],
+        notes: data.notes,
+      });
+    } catch {
+      setGuestError("Unable to retrieve tracking details right now. Please try again later.");
+    } finally {
+      setGuestSearching(false);
+    }
+  };
+
   useEffect(() => {
     (async () => {
-      if (!orderId) {
+      // 1. If user is signed in, query their authenticated order
+      if (user && orderId) {
+        setLoading(true);
+        const { data: o } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
+        setOrder(o);
+        const { data: d } = await (supabase.from("deliveries" as any) as any).select("*").eq("order_id", orderId).maybeSingle();
+        setDelivery(d);
         setLoading(false);
         return;
       }
 
-      // If user is not authenticated, do not query DB since RLS strictly requires authentication
-      if (!user) {
-        setOrder(null);
-        setDelivery(null);
+      // 2. If unauthenticated but email param and orderId are present in URL, try guest lookup
+      const emailParam = searchParams.get("email");
+      if (!user && orderId && emailParam) {
+        setLoading(true);
+        await fetchGuestOrder(orderId, emailParam);
         setLoading(false);
         return;
       }
 
-      setLoading(true);
-      const { data: o } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
-      setOrder(o);
-      const { data: d } = await (supabase.from("deliveries" as any) as any).select("*").eq("order_id", orderId).maybeSingle();
-      setDelivery(d);
       setLoading(false);
     })();
   }, [orderId, user]);
 
   const currentIdx = delivery ? Math.max(0, STEPS.findIndex((s) => s.key === delivery.status)) : 0;
   const isOverallLoading = authLoading || loading;
+
+  const handleGuestSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchGuestOrder(guestOrderId, guestEmail);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -77,48 +138,91 @@ const TrackOrder = () => {
           <div className="py-12 text-center text-muted-foreground animate-pulse">
             Verifying order details…
           </div>
-        ) : !user ? (
-          <div className="bg-card border rounded-2xl p-8 text-center max-w-lg mx-auto my-8 space-y-4 shadow-sm">
-            <div className="mx-auto w-14 h-14 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
-              <ShieldCheck size={28} />
-            </div>
-            <h2 className="text-xl font-heading font-bold text-foreground">Sign In to View Order Tracking</h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              To protect customer privacy and shipping information, tracking updates are only accessible when signed in to the account that placed the order.
-            </p>
-            <div className="pt-3 flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                to={`/auth?next=${encodeURIComponent(orderId ? `/track/${orderId}` : "/account")}`}
-                className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-forest-light transition-colors"
-              >
-                <LogIn size={16} /> Sign In to Your Account
-              </Link>
-              <Link
-                to="/contact"
-                className="inline-flex items-center justify-center gap-2 px-6 py-2.5 border border-border text-foreground font-medium rounded-lg hover:bg-muted transition-colors"
-              >
-                <HelpCircle size={16} /> Need Help?
-              </Link>
-            </div>
-          </div>
         ) : !order ? (
-          <div className="bg-card border rounded-2xl p-8 text-center max-w-lg mx-auto my-8 space-y-4 shadow-sm">
-            <h2 className="text-xl font-heading font-bold text-foreground">No order found for this account</h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              We couldn't find an order matching this ID under your signed-in account. Please verify the order ID in your confirmation email, or check your account's order history.
-            </p>
-            <div className="pt-3 flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                to="/account"
-                className="px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-forest-light transition-colors"
+          <div className="bg-card border rounded-2xl p-6 md:p-8 max-w-lg mx-auto my-8 space-y-6 shadow-sm">
+            <div className="text-center space-y-2">
+              <div className="mx-auto w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center text-secondary mb-3">
+                <Search size={24} />
+              </div>
+              <h2 className="text-xl font-heading font-bold text-foreground">Track Your Shipment</h2>
+              <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
+                Enter your Order ID and the email address provided during checkout to view live tracking updates.
+              </p>
+            </div>
+
+            <form onSubmit={handleGuestSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-foreground uppercase tracking-wider mb-1.5">
+                  Order ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 66666666-6666-6666-6666-666666666601"
+                  value={guestOrderId}
+                  onChange={(e) => {
+                    setGuestOrderId(e.target.value);
+                    if (guestError) setGuestError(null);
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground uppercase tracking-wider mb-1.5">
+                  Billing Email
+                </label>
+                <input
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={guestEmail}
+                  onChange={(e) => {
+                    setGuestEmail(e.target.value);
+                    if (guestError) setGuestError(null);
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                  required
+                />
+              </div>
+
+              {guestError && (
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive">
+                  {guestError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={guestSearching}
+                className="w-full inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-forest-light transition-colors disabled:opacity-60 text-sm"
               >
-                View My Orders
-              </Link>
-              <Link
-                to="/contact"
-                className="px-6 py-2.5 border border-border text-foreground font-medium rounded-lg hover:bg-muted transition-colors"
-              >
-                Contact Customer Care
+                {guestSearching ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" /> Verifying Order...
+                  </>
+                ) : (
+                  <>
+                    <Search size={16} /> Track Shipment
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="pt-4 border-t border-border flex flex-col sm:flex-row gap-3 justify-between items-center text-xs text-muted-foreground">
+              {!user ? (
+                <Link
+                  to={`/auth?next=${encodeURIComponent(orderId ? `/track/${orderId}` : "/account")}`}
+                  className="inline-flex items-center gap-1.5 text-secondary hover:underline font-medium"
+                >
+                  <LogIn size={14} /> Have an account? Sign In
+                </Link>
+              ) : (
+                <Link to="/account" className="inline-flex items-center gap-1.5 text-secondary hover:underline font-medium">
+                  View Account Orders
+                </Link>
+              )}
+              <Link to="/contact" className="inline-flex items-center gap-1.5 hover:underline">
+                <HelpCircle size={14} /> Need Help?
               </Link>
             </div>
           </div>

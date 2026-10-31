@@ -147,17 +147,41 @@ function toGeminiContents(messages: any[]) {
 }
 
 // Simple in-memory rate limiter
-const rateLimits = new Map<string, { count: number; resetAt: number }>();
-function checkRateLimit(key: string, maxPerMinute: number): boolean {
+// Persistent DB rate limiter with in-memory fallback
+const memoryRateLimits = new Map<string, { count: number; resetAt: number }>();
+function checkMemoryRateLimit(key: string, maxRequests: number, windowSeconds: number = 60): boolean {
   const now = Date.now();
-  const entry = rateLimits.get(key);
+  const entry = memoryRateLimits.get(key);
   if (!entry || now > entry.resetAt) {
-    rateLimits.set(key, { count: 1, resetAt: now + 60_000 });
+    memoryRateLimits.set(key, { count: 1, resetAt: now + windowSeconds * 1000 });
     return true;
   }
-  if (entry.count >= maxPerMinute) return false;
+  if (entry.count >= maxRequests) return false;
   entry.count++;
   return true;
+}
+
+async function checkPersistentRateLimit(
+  supabase: any,
+  key: string,
+  maxRequests: number = 20,
+  windowSeconds: number = 60
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc("check_rate_limit", {
+      p_key: key,
+      p_max_requests: maxRequests,
+      p_window_seconds: windowSeconds,
+    });
+    if (error) {
+      console.warn("Persistent rate limit RPC error, using memory fallback:", error.message);
+      return checkMemoryRateLimit(key, maxRequests, windowSeconds);
+    }
+    return Boolean(data);
+  } catch (err) {
+    console.warn("Persistent rate limit exception, using memory fallback:", err);
+    return checkMemoryRateLimit(key, maxRequests, windowSeconds);
+  }
 }
 
 serve(async (req) => {
@@ -187,14 +211,15 @@ serve(async (req) => {
       } catch {}
     }
 
-    // Rate limit: 20 requests/minute per user or IP
+    const supabase = svc();
+
+    // Persistent Database Rate limit: 20 requests/minute per user or IP
     const rateLimitKey = userId || req.headers.get("x-forwarded-for") || "anon";
-    if (!checkRateLimit(`chat:${rateLimitKey}`, 20)) {
+    const isAllowed = await checkPersistentRateLimit(supabase, `chat:${rateLimitKey}`, 20, 60);
+    if (!isAllowed) {
       return new Response(JSON.stringify({ error: "Too many messages — try again in a moment." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    const supabase = svc();
 
     // Ensure conversation exists & persist latest user message
     let convId = conversation_id as string | null;

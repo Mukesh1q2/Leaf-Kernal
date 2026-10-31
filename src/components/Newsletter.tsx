@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -12,7 +13,7 @@ const Newsletter = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const value = email.trim();
+    const value = email.trim().toLowerCase();
     if (!value) {
       setError("Please enter your email address.");
       return;
@@ -24,11 +25,31 @@ const Newsletter = () => {
     setError(null);
     setSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 500));
-      toast.success("You're subscribed! Welcome to the family 🌿");
+      const { error: insertError } = await supabase
+        .from("newsletter_subscribers" as any)
+        .insert({
+          email: value,
+          source: "website_footer",
+        });
+
+      if (insertError) {
+        // Postgres unique violation code 23505 or duplicate key
+        if (
+          insertError.code === "23505" ||
+          insertError.message?.toLowerCase().includes("duplicate") ||
+          insertError.message?.toLowerCase().includes("unique")
+        ) {
+          toast.info("You're already subscribed to our newsletter! 🌿");
+          setEmail("");
+          return;
+        }
+        throw insertError;
+      }
+
+      toast.success("You're subscribed! Welcome to the Leaf & Kernel family 🌿");
       setEmail("");
-    } catch {
-      toast.error("Subscription failed. Please try again.");
+    } catch (err: any) {
+      toast.error(err?.message || "Subscription failed. Please try again.");
     } finally {
       setSubmitting(false);
     }

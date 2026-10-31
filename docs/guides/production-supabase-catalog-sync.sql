@@ -164,7 +164,8 @@ INSERT INTO public.site_settings (key, value) VALUES
   ('contact_email', 'customercare@leafandkernel.com'),
   ('support_phone', '+91 8796745590'),
   ('whatsapp_number', '+918796745590'),
-  ('cod_enabled', 'false')
+  ('cod_enabled', 'false'),
+  ('environment', 'production')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 COMMIT;
