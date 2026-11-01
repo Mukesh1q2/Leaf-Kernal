@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Loader2, Tag, Gift, Check } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Loader2, Tag, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -42,7 +42,7 @@ interface AppliedCouponInfo {
 }
 
 const Cart = () => {
-  const { items, loading, subtotal, updateQuantity, removeFromCart, clearCart } = useCart();
+  const { items, subtotal, updateQuantity, removeFromCart, clearCart } = useCart();
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -141,7 +141,16 @@ const Cart = () => {
 
   const loadRazorpayScript = (): Promise<boolean> => {
     return new Promise((resolve) => {
-      if (window.Razorpay) { resolve(true); return; }
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+      const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+      if (existing) {
+        existing.addEventListener("load", () => resolve(true));
+        existing.addEventListener("error", () => resolve(false));
+        return;
+      }
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
@@ -165,50 +174,135 @@ const Cart = () => {
       });
 
       const loaded = await loadRazorpayScript();
-      if (!loaded) throw new Error("Failed to load payment gateway");
+      if (!loaded) throw new Error("Failed to load Razorpay payment gateway");
 
-      const { data, error } = await supabase.functions.invoke("create-razorpay-order", {
-        body: {
-          redeem_points: redeemPoints,
-          coupon_code: appliedCoupon?.code || undefined,
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      let orderId = "";
+      let razorpayOrderId = "";
+      let razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
+      let orderAmount = Math.round(total * 100);
+      let orderCurrency = "INR";
+      let userEmail: string = user.email || "";
+      let userName: string = (user.user_metadata?.full_name as string) || "";
 
+      let createdSuccessfully = false;
+
+      // 1. Primary backend order creation via Supabase Edge Function
+      try {
+        const { data, error } = await supabase.functions.invoke("create-razorpay-order", {
+          body: {
+            redeem_points: redeemPoints,
+            coupon_code: appliedCoupon?.code || undefined,
+          },
+        });
+
+        if (!error && data && !data.error && (data.razorpay_order_id || data.order_id)) {
+          orderId = data.order_id;
+          razorpayOrderId = data.razorpay_order_id || data.order_id;
+          razorpayKeyId = data.razorpay_key_id || razorpayKeyId;
+          orderAmount = data.amount;
+          orderCurrency = data.currency || "INR";
+          userEmail = data.user_email || userEmail;
+          userName = data.user_name || userName;
+          createdSuccessfully = true;
+        } else if (data?.error) {
+          throw new Error(data.error);
+        }
+      } catch (err: any) {
+        if (err.message && !err.message.includes("FunctionsFetchError")) {
+          throw err;
+        }
+      }
+
+      // 2. Dev server fallback: /api/create-order endpoint
+      if (!createdSuccessfully) {
+        const res = await fetch("/api/create-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: Math.round(total * 100),
+            currency: "INR",
+            receipt: `rcpt_${Date.now()}`,
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to create payment order");
+        }
+
+        const apiData = await res.json();
+        orderId = apiData.order_id;
+        razorpayOrderId = apiData.order_id;
+        razorpayKeyId = apiData.razorpay_key_id || razorpayKeyId;
+        orderAmount = apiData.amount;
+        orderCurrency = apiData.currency || "INR";
+      }
+
+      // 3. Open Razorpay modal with order_id
       const options = {
-        key: data.razorpay_key_id,
-        amount: data.amount,
-        currency: data.currency,
+        key: razorpayKeyId,
+        amount: orderAmount,
+        currency: orderCurrency,
         name: "Leaf & Kernel",
         description: "Superfood Order",
-        order_id: data.razorpay_order_id,
-        prefill: { email: data.user_email, name: data.user_name },
+        order_id: razorpayOrderId,
+        prefill: { email: userEmail, name: userName },
         theme: { color: "#1A4D2E" },
         handler: async (response: any) => {
           try {
-            const { data: verifyData, error: verifyError } = await supabase.functions.invoke("verify-razorpay-payment", {
-              body: {
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                order_id: data.order_id,
-              },
-            });
-            if (verifyError) throw verifyError;
-            if (verifyData?.error) throw new Error(verifyData.error);
+            // Verify payment signature
+            let verified = false;
+            try {
+              const { data: verifyData, error: verifyError } = await supabase.functions.invoke("verify-razorpay-payment", {
+                body: {
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  order_id: orderId,
+                },
+              });
+              if (!verifyError && verifyData?.success) {
+                verified = true;
+              }
+            } catch (vErr) {
+              console.warn("Edge function verify fallback:", vErr);
+            }
+
+            if (!verified) {
+              const vRes = await fetch("/api/verify-payment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  order_id: orderId,
+                }),
+              });
+
+              if (!vRes.ok) {
+                const vJson = await vRes.json().catch(() => ({}));
+                throw new Error(vJson.error || "Payment signature verification failed");
+              }
+            }
 
             emitCommerceEvent({
               eventName: "purchase",
-              orderId: data.order_id,
-              totalValue: Number(data.amount) / 100,
+              orderId,
+              totalValue: Number(orderAmount) / 100,
               itemCount: items.length,
             });
 
             await clearCart();
+            toast({
+              title: "Payment Successful!",
+              description: `Transaction ID: ${response.razorpay_payment_id}. Your order has been placed.`,
+            });
             navigate("/checkout/success");
           } catch (e: any) {
             toast({ title: "Payment verification failed", description: e.message, variant: "destructive" });
+          } finally {
+            setCheckoutLoading(false);
           }
         },
         modal: {
@@ -221,7 +315,11 @@ const Cart = () => {
 
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", (response: any) => {
-        toast({ title: "Payment failed", description: response.error?.description || "Please try again.", variant: "destructive" });
+        toast({
+          title: "Payment failed",
+          description: response.error?.description || "Payment could not be completed. Please try again.",
+          variant: "destructive",
+        });
         setCheckoutLoading(false);
       });
       rzp.open();

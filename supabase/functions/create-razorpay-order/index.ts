@@ -26,7 +26,12 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Not authenticated");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Not authenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -34,14 +39,22 @@ serve(async (req) => {
     const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
 
     if (!razorpayKeyId || !razorpayKeySecret) {
-      throw new Error("Razorpay is not configured yet. Please add your Razorpay API keys.");
+      return new Response(JSON.stringify({ error: "Razorpay is not configured yet. Please add your Razorpay API keys." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) throw new Error("Invalid token");
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Invalid token or expired session" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Get cart items with product data
     const { data: cartItems, error: cartError } = await supabase
@@ -50,7 +63,12 @@ serve(async (req) => {
       .eq("user_id", user.id);
 
     if (cartError) throw cartError;
-    if (!cartItems || cartItems.length === 0) throw new Error("Cart is empty");
+    if (!cartItems || cartItems.length === 0) {
+      return new Response(JSON.stringify({ error: "Cart is empty" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const redeemPoints = Math.max(0, parseInt(body?.redeem_points ?? 0, 10) || 0);
@@ -103,7 +121,10 @@ serve(async (req) => {
       });
 
       if (valErr || !valResult || !valResult.valid) {
-        throw new Error(valResult?.error || "Invalid or ineligible coupon code");
+        return new Response(JSON.stringify({ error: valResult?.error || "Invalid or ineligible coupon code" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       couponDiscount = Number(valResult.discount_amount) || 0;
@@ -118,6 +139,15 @@ serve(async (req) => {
 
     const totalDiscount = Math.min(subtotal, loyaltyDiscount + couponDiscount);
     const total = Math.max(subtotal + shipping - totalDiscount, 0);
+    const amountInPaise = Math.round(total * 100);
+
+    // Minimum amount validation: 100 paise (₹1.00)
+    if (amountInPaise < 100) {
+      return new Response(JSON.stringify({ error: "Order amount must be at least 100 paise (₹1.00)" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Create pending order in DB
     const { data: order, error: orderError } = await supabase
@@ -163,7 +193,7 @@ serve(async (req) => {
 
     await supabase.from("order_items").insert(orderItems);
 
-    // Create Razorpay order
+    // Call Razorpay API: POST https://api.razorpay.com/v1/orders
     const razorpayAuth = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
     const rzpResponse = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
@@ -172,7 +202,7 @@ serve(async (req) => {
         "Authorization": `Basic ${razorpayAuth}`,
       },
       body: JSON.stringify({
-        amount: Math.round(total * 100), // paise
+        amount: amountInPaise,
         currency: "INR",
         receipt: order.id,
         notes: {
@@ -184,20 +214,23 @@ serve(async (req) => {
 
     if (!rzpResponse.ok) {
       const errBody = await rzpResponse.text();
-      throw new Error(`Razorpay error: ${errBody}`);
+      return new Response(JSON.stringify({ error: `Razorpay API error: ${errBody}` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const rzpOrder = await rzpResponse.json();
 
-    // Store razorpay order id
+    // Store razorpay order id in orders table
     await supabase.from("orders").update({ stripe_session_id: rzpOrder.id }).eq("id", order.id);
 
     return new Response(JSON.stringify({
+      order_id: order.id,
       razorpay_order_id: rzpOrder.id,
       razorpay_key_id: razorpayKeyId,
       amount: rzpOrder.amount,
       currency: rzpOrder.currency,
-      order_id: order.id,
       user_email: user.email,
       user_name: user.user_metadata?.full_name || "",
     }), {
@@ -205,7 +238,7 @@ serve(async (req) => {
     });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

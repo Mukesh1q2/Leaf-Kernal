@@ -185,10 +185,20 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Not authenticated");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Not authenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
-    if (!razorpayKeySecret) throw new Error("Razorpay not configured");
+    if (!razorpayKeySecret) {
+      return new Response(JSON.stringify({ error: "Razorpay not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -196,12 +206,24 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) throw new Error("Invalid token");
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Invalid token or expired session" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, order_id } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const razorpay_order_id = body.razorpay_order_id || body.order_id;
+    const razorpay_payment_id = body.razorpay_payment_id || body.payment_id;
+    const razorpay_signature = body.razorpay_signature || body.signature;
+    const order_id = body.order_id;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !order_id) {
-      throw new Error("Missing payment verification fields");
+      return new Response(JSON.stringify({ error: "Missing required payment verification fields" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Verify order exists and belongs to authenticated user
@@ -213,7 +235,10 @@ serve(async (req) => {
       .single();
 
     if (orderCheckErr || !existingOrder) {
-      throw new Error("Order not found or access denied");
+      return new Response(JSON.stringify({ error: "Order not found or access denied" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Idempotency: if order is already confirmed, return success
@@ -223,7 +248,7 @@ serve(async (req) => {
       });
     }
 
-    // Verify signature using Web Crypto API
+    // Verify signature using Web Crypto API: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       "raw",
@@ -251,7 +276,10 @@ serve(async (req) => {
           description: "Refund loyalty points for failed payment verification",
         });
       }
-      throw new Error("Payment verification failed - invalid signature");
+      return new Response(JSON.stringify({ success: false, error: "Payment verification failed - signature mismatch" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Payment verified - update order status
