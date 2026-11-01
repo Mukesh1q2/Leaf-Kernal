@@ -7,6 +7,7 @@ import { loadEnv } from "vite";
 const env = loadEnv("development", process.cwd(), "");
 const TEST_KEY_ID = env.RAZORPAY_KEY_ID || env.VITE_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || "";
 const TEST_KEY_SECRET = env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET || "";
+const MOCK_ALGO_SECRET = TEST_KEY_SECRET || "unit_test_mock_secret_for_hmac_validation_12345";
 
 describe("Razorpay Standard Checkout Integration", () => {
   // Test 1: Credentials Format Verification
@@ -91,7 +92,7 @@ describe("Razorpay Standard Checkout Integration", () => {
       orderId?: string,
       paymentId?: string,
       signature?: string,
-      secret: string = TEST_KEY_SECRET
+      secret: string = MOCK_ALGO_SECRET
     ) {
       if (!orderId || !paymentId || !signature) {
         return { status: 400, error: "Missing required fields" };
@@ -114,7 +115,7 @@ describe("Razorpay Standard Checkout Integration", () => {
 
     it("should successfully verify a valid HMAC-SHA256 signature", () => {
       const validSig = crypto
-        .createHmac("sha256", TEST_KEY_SECRET)
+        .createHmac("sha256", MOCK_ALGO_SECRET)
         .update(`${testOrderId}|${testPaymentId}`)
         .digest("hex");
 
@@ -133,7 +134,7 @@ describe("Razorpay Standard Checkout Integration", () => {
 
     it("should reject if order_id is altered", () => {
       const validSig = crypto
-        .createHmac("sha256", TEST_KEY_SECRET)
+        .createHmac("sha256", MOCK_ALGO_SECRET)
         .update(`${testOrderId}|${testPaymentId}`)
         .digest("hex");
 
@@ -144,7 +145,7 @@ describe("Razorpay Standard Checkout Integration", () => {
 
     it("should reject if payment_id is altered", () => {
       const validSig = crypto
-        .createHmac("sha256", TEST_KEY_SECRET)
+        .createHmac("sha256", MOCK_ALGO_SECRET)
         .update(`${testOrderId}|${testPaymentId}`)
         .digest("hex");
 
@@ -169,7 +170,7 @@ describe("Razorpay Standard Checkout Integration", () => {
 
       // Node.js crypto
       const nodeDigest = crypto
-        .createHmac("sha256", TEST_KEY_SECRET)
+        .createHmac("sha256", MOCK_ALGO_SECRET)
         .update(data)
         .digest("hex");
 
@@ -177,7 +178,7 @@ describe("Razorpay Standard Checkout Integration", () => {
       const encoder = new TextEncoder();
       const cryptoKey = await crypto.webcrypto.subtle.importKey(
         "raw",
-        encoder.encode(TEST_KEY_SECRET),
+        encoder.encode(MOCK_ALGO_SECRET),
         { name: "HMAC", hash: "SHA-256" },
         false,
         ["sign"]
