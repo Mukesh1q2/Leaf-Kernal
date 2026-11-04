@@ -18,6 +18,7 @@ import { Plus, Pencil, Trash2, ImagePlus, Search, Download, History, Loader2 } f
 import { saveRevision } from "@/lib/revisions";
 import { RevisionHistoryDialog } from "@/components/admin/RevisionHistoryDialog";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { validateProductPricing, parseProductStockQuantity, validateSlug, generateSlug } from "@/lib/cmsValidation";
 
 interface Product {
   id: string;
@@ -187,23 +188,21 @@ const AdminProducts = () => {
       return;
     }
     const priceNum = parseFloat(form.price);
-    if (isNaN(priceNum) || priceNum < 0) {
-      toast({ title: "Invalid price", description: "Product price must be a valid non-negative number.", variant: "destructive" });
-      return;
-    }
     const origPriceNum = form.original_price ? parseFloat(form.original_price) : null;
-    if (origPriceNum !== null && (isNaN(origPriceNum) || origPriceNum < priceNum)) {
-      toast({ title: "Invalid original price", description: "Original price (M.R.P.) cannot be lower than selling price.", variant: "destructive" });
+    const priceValidation = validateProductPricing(priceNum, origPriceNum);
+    if (!priceValidation.valid) {
+      toast({ title: "Invalid price", description: priceValidation.error, variant: "destructive" });
       return;
     }
-    const rawStock = parseInt(form.stock_quantity, 10);
-    const stockQty = isNaN(rawStock) ? 0 : Math.max(0, rawStock);
+    const stockQty = parseProductStockQuantity(form.stock_quantity);
 
-    const slug = (form.slug.trim() || form.name.trim()).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    if (!slug) {
-      toast({ title: "Invalid slug", description: "Slug must contain valid alphanumeric characters.", variant: "destructive" });
+    const slugToTest = form.slug.trim() ? generateSlug(form.slug) : generateSlug(form.name);
+    const slugValidation = validateSlug(slugToTest);
+    if (!slugValidation.valid) {
+      toast({ title: "Invalid slug", description: slugValidation.error, variant: "destructive" });
       return;
     }
+    const slug = slugToTest;
 
     setSaving(true);
     const payload: any = {
@@ -335,7 +334,7 @@ const AdminProducts = () => {
   if (statusFilter === "low") filtered = filtered.filter(p => (p.stock_quantity || 0) < 10);
 
   const getStockStatus = (qty: number | null) => {
-    const q = qty || 0;
+    const q = qty ?? 0;
     if (q === 0) return { label: "Out of Stock", cls: "bg-red-100 text-red-800" };
     if (q < 10) return { label: "Low Stock", cls: "bg-yellow-100 text-yellow-800" };
     return { label: "In Stock", cls: "bg-green-100 text-green-800" };

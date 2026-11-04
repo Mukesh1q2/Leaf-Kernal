@@ -10,8 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Heart, Loader2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { Switch } from "@/components/ui/switch";
+import { validateHealthConcernInput, generateSlug } from "@/lib/cmsValidation";
 
-const emptyForm = { name: "", slug: "", description: "", icon: "", sort_order: "0" };
+const emptyForm = { name: "", slug: "", description: "", icon: "", sort_order: "0", is_active: true };
 
 const AdminHealthConcerns = () => {
   const [items, setItems] = useState<any[]>([]);
@@ -53,29 +55,28 @@ const AdminHealthConcerns = () => {
       description: c.description || "",
       icon: c.icon || "",
       sort_order: String(c.sort_order || 0),
+      is_active: c.is_active ?? true,
     });
     setDialogOpen(true);
   };
 
   const save = async () => {
-    if (!form.name.trim()) {
-      toast({ title: "Name required", description: "Please enter a health concern name.", variant: "destructive" });
-      return;
-    }
-    const slug = (form.slug.trim() || form.name.trim()).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    if (!slug) {
-      toast({ title: "Invalid slug", description: "Slug must contain valid alphanumeric characters.", variant: "destructive" });
+    const slug = generateSlug(form.slug || form.name);
+    const validation = validateHealthConcernInput(form.name, slug);
+    if (!validation.valid) {
+      toast({ title: "Validation Error", description: validation.error, variant: "destructive" });
       return;
     }
     const sortOrder = parseInt(form.sort_order, 10);
 
     setSaving(true);
-    const payload = {
+    const payload: any = {
       name: form.name.trim(),
       slug,
       description: form.description?.trim() || null,
       icon: form.icon?.trim() || null,
       sort_order: isNaN(sortOrder) ? 0 : sortOrder,
+      is_active: form.is_active,
     };
 
     if (editId) {
@@ -119,39 +120,26 @@ const AdminHealthConcerns = () => {
     if (!deleteDialog.concernId) return;
     setIsDeleting(true);
 
-    // If products are linked, safely unlink them first to avoid orphaned associations or FK blocks
-    if (deleteDialog.productCount > 0) {
-      const { error: unlinkError } = await supabase
-        .from("product_health_concerns")
-        .delete()
-        .eq("concern_id", deleteDialog.concernId);
+    // Call atomic health concern delete RPC which unlinks junction rows and deletes concern transactionally
+    const { error: rpcError } = await (supabase.rpc as any)("delete_health_concern_atomic", {
+      p_concern_id: deleteDialog.concernId,
+    });
 
-      if (unlinkError) {
-        setIsDeleting(false);
-        toast({
-          title: "Failed to unlink products",
-          description: unlinkError.message,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    const { error } = await supabase.from("health_concerns").delete().eq("id", deleteDialog.concernId);
     setIsDeleting(false);
     setDeleteDialog(prev => ({ ...prev, open: false }));
 
-    if (error) {
-      toast({ title: "Failed to delete health concern", description: error.message, variant: "destructive" });
-    } else {
-      toast({
-        title: "Health concern deleted",
-        description: deleteDialog.productCount > 0
-          ? `Concern deleted and unlinked from ${deleteDialog.productCount} product(s).`
-          : "Health concern deleted successfully.",
-      });
-      fetchData();
+    if (rpcError) {
+      toast({ title: "Failed to delete health concern", description: rpcError.message, variant: "destructive" });
+      return;
     }
+
+    toast({
+      title: "Health concern deleted",
+      description: deleteDialog.productCount > 0
+        ? `Concern deleted and safely unlinked from ${deleteDialog.productCount} product(s).`
+        : "Health concern deleted successfully.",
+    });
+    fetchData();
   };
 
   return (
@@ -194,6 +182,14 @@ const AdminHealthConcerns = () => {
             <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} /></div>
             <div><Label>Icon (emoji or icon name)</Label><Input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} placeholder="🛡️ or Shield" /></div>
             <div><Label>Sort Order</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></div>
+            <div className="flex items-center justify-between pt-2">
+              <Label htmlFor="concern-active" className="cursor-pointer">Active on Storefront</Label>
+              <Switch
+                id="concern-active"
+                checked={form.is_active}
+                onCheckedChange={(checked) => setForm({ ...form, is_active: checked })}
+              />
+            </div>
             <Button onClick={save} disabled={saving} className="w-full">
               {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editId ? "Update Concern" : "Create Concern"}
             </Button>

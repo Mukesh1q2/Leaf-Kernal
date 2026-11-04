@@ -55,7 +55,11 @@ const HealthConcerns = () => {
         if (error) {
           console.warn("Could not load health concerns from CMS, using defaults:", error.message);
         } else if (mounted && data && data.length > 0) {
-          setConcerns(data);
+          // Explicitly filter for active health concerns
+          const activeConcerns = data.filter((c: any) => c.is_active !== false);
+          if (activeConcerns.length > 0) {
+            setConcerns(activeConcerns);
+          }
         }
       } catch (err) {
         console.warn("Error loading health concerns:", err);

@@ -2,17 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Star, Quote, CheckCircle2, MessageSquareHeart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-
-interface TestimonialItem {
-  id: string;
-  name: string;
-  city: string | null;
-  product: string | null;
-  quote: string;
-  rating: number;
-  photo_url: string | null;
-  sort_order: number;
-}
+import { TestimonialItem, CURATED_FALLBACK_TESTIMONIALS } from "@/lib/testimonialsData";
 
 export const Testimonials = () => {
   const [testimonials, setTestimonials] = useState<TestimonialItem[]>([]);
@@ -58,10 +48,7 @@ export const Testimonials = () => {
     );
   }
 
-  // If no testimonials in database yet, gracefully show a friendly community invitation or return null
-  if (testimonials.length === 0) {
-    return null;
-  }
+  const displayTestimonials = testimonials.length > 0 ? testimonials : CURATED_FALLBACK_TESTIMONIALS;
 
   return (
     <section className="py-16 md:py-24 bg-background border-t border-border">
@@ -79,7 +66,7 @@ export const Testimonials = () => {
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {testimonials.map((t, i) => (
+          {displayTestimonials.map((t, i) => (
             <motion.div
               key={t.id}
               initial={{ opacity: 0, y: 20 }}
@@ -122,7 +109,9 @@ export const Testimonials = () => {
                   <div>
                     <div className="flex items-center gap-1">
                       <p className="font-semibold text-sm text-foreground">{t.name}</p>
-                      <CheckCircle2 size={13} className="text-secondary" title="Verified Customer" />
+                      {t.is_verified && (
+                        <CheckCircle2 size={13} className="text-secondary" title="Verified Customer" />
+                      )}
                     </div>
                     {t.city && (
                       <p className="text-xs text-muted-foreground">{t.city}</p>

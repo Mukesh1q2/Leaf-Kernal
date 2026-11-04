@@ -1,12 +1,20 @@
 -- ==============================================================================
--- Migration: CMS & Storefront Controls, Atomic Bundles, and Reference Integrity
+-- Migration: CMS Storefront Controls, Atomic Bundles, and Transactional Deletions
 -- Date: 2026-11-04
 --
 -- Features:
 -- 1. Atomic Bundle Save & Replace RPC (save_bundle_atomic)
--- 2. Entity Reference Checker RPC (check_entity_references)
--- 3. Expanded Site Settings Whitelist Policy for Storefront Display
+-- 2. Atomic Bundle Delete RPC (delete_bundle_atomic)
+-- 3. Atomic Category Delete RPC with Child Protection (delete_category_atomic)
+-- 4. Atomic Health Concern Delete RPC with Junction Unlinking (delete_health_concern_atomic)
+-- 5. Role-Restricted Entity Reference Checker RPC (check_entity_references)
+-- 6. Schema additions: health_concerns.is_active, testimonials.is_verified
+-- 7. Expanded Site Settings Whitelist Policy for Public Storefront
 -- ==============================================================================
+
+-- 0. Schema Additions
+ALTER TABLE public.health_concerns ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
+ALTER TABLE public.testimonials ADD COLUMN IF NOT EXISTS is_verified boolean DEFAULT false;
 
 -- 1. Atomic Bundle Save & Replace
 CREATE OR REPLACE FUNCTION public.save_bundle_atomic(
@@ -32,31 +40,32 @@ DECLARE
   v_qty int;
   v_result jsonb;
 BEGIN
-  -- Permission check: caller must have CMS access
+  -- Strict Permission Check: Only staff with CMS access can mutate bundles
   IF NOT (
     public.has_role(auth.uid(), 'admin'::app_role) OR
     public.has_role(auth.uid(), 'editor'::app_role) OR
     public.has_role(auth.uid(), 'content_manager'::app_role) OR
     public.has_role(auth.uid(), 'inventory_manager'::app_role)
   ) THEN
-    RAISE EXCEPTION 'Access denied. You do not have permission to manage product bundles.';
+    RAISE EXCEPTION 'Access denied. You do not have permission to manage product bundles.'
+      USING ERRCODE = '42501';
   END IF;
 
   -- Validate inputs
   IF p_name IS NULL OR trim(p_name) = '' THEN
-    RAISE EXCEPTION 'Bundle name is required.';
+    RAISE EXCEPTION 'Bundle name is required.' USING ERRCODE = '22023';
   END IF;
 
   IF p_slug IS NULL OR trim(p_slug) = '' THEN
-    RAISE EXCEPTION 'Bundle slug is required.';
+    RAISE EXCEPTION 'Bundle slug is required.' USING ERRCODE = '22023';
   END IF;
 
-  IF p_bundle_price IS NULL OR p_bundle_price < 0 THEN
-    RAISE EXCEPTION 'Bundle price must be non-negative.';
+  IF p_bundle_price IS NULL OR p_bundle_price <= 0 THEN
+    RAISE EXCEPTION 'Bundle price must be greater than zero.' USING ERRCODE = '22023';
   END IF;
 
   IF p_items IS NULL OR jsonb_typeof(p_items) != 'array' OR jsonb_array_length(p_items) = 0 THEN
-    RAISE EXCEPTION 'A bundle must include at least one product item.';
+    RAISE EXCEPTION 'A bundle must include at least one product item.' USING ERRCODE = '22023';
   END IF;
 
   -- Update or Insert bundle
@@ -75,7 +84,7 @@ BEGIN
     RETURNING id INTO v_id;
 
     IF v_id IS NULL THEN
-      RAISE EXCEPTION 'Bundle with id % does not exist.', p_bundle_id;
+      RAISE EXCEPTION 'Bundle with id % does not exist.', p_bundle_id USING ERRCODE = 'P0002';
     END IF;
   ELSE
     INSERT INTO public.product_bundles (
@@ -102,7 +111,7 @@ BEGIN
     RETURNING id INTO v_id;
   END IF;
 
-  -- Replace bundle items atomically within this transaction
+  -- Replace bundle items atomically within this single transaction
   DELETE FROM public.bundle_items WHERE bundle_id = v_id;
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
@@ -112,7 +121,8 @@ BEGIN
 
     -- Verify product exists
     IF NOT EXISTS (SELECT 1 FROM public.products WHERE id = v_prod_id) THEN
-      RAISE EXCEPTION 'Referenced product % does not exist in catalog.', v_prod_id;
+      RAISE EXCEPTION 'Referenced product % does not exist in catalog.', v_prod_id
+        USING ERRCODE = '23503';
     END IF;
 
     INSERT INTO public.bundle_items (bundle_id, product_id, quantity)
@@ -127,7 +137,112 @@ BEGIN
 END;
 $$;
 
--- 2. Entity Reference Checker for Safe Deletions
+-- 2. Atomic Bundle Deletion
+CREATE OR REPLACE FUNCTION public.delete_bundle_atomic(p_bundle_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NOT (
+    public.has_role(auth.uid(), 'admin'::app_role) OR
+    public.has_role(auth.uid(), 'editor'::app_role) OR
+    public.has_role(auth.uid(), 'inventory_manager'::app_role)
+  ) THEN
+    RAISE EXCEPTION 'Access denied. You do not have permission to delete product bundles.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  DELETE FROM public.bundle_items WHERE bundle_id = p_bundle_id;
+  DELETE FROM public.product_bundles WHERE id = p_bundle_id;
+  RETURN true;
+END;
+$$;
+
+-- 3. Atomic Category Deletion with Subcategory Guard
+CREATE OR REPLACE FUNCTION public.delete_category_atomic(p_category_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_subcat_count int := 0;
+  v_prod_count int := 0;
+BEGIN
+  IF NOT (
+    public.has_role(auth.uid(), 'admin'::app_role) OR
+    public.has_role(auth.uid(), 'editor'::app_role)
+  ) THEN
+    RAISE EXCEPTION 'Access denied. You do not have permission to delete categories.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Verify no child subcategories depend on this category
+  SELECT count(*) INTO v_subcat_count
+  FROM public.categories
+  WHERE parent_id = p_category_id;
+
+  IF v_subcat_count > 0 THEN
+    RAISE EXCEPTION 'Cannot delete category: % child subcategory(ies) exist. Reassign or delete them first.', v_subcat_count
+      USING ERRCODE = '23503';
+  END IF;
+
+  -- Count affected products
+  SELECT count(*) INTO v_prod_count
+  FROM public.products
+  WHERE category_id = p_category_id;
+
+  -- Safely unassign products in the same transaction
+  UPDATE public.products
+  SET category_id = NULL
+  WHERE category_id = p_category_id;
+
+  -- Delete the category
+  DELETE FROM public.categories WHERE id = p_category_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'unassigned_products_count', v_prod_count
+  );
+END;
+$$;
+
+-- 4. Atomic Health Concern Deletion with Junction Unlinking
+CREATE OR REPLACE FUNCTION public.delete_health_concern_atomic(p_concern_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_linked_count int := 0;
+BEGIN
+  IF NOT (
+    public.has_role(auth.uid(), 'admin'::app_role) OR
+    public.has_role(auth.uid(), 'editor'::app_role)
+  ) THEN
+    RAISE EXCEPTION 'Access denied. You do not have permission to delete health concerns.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT count(*) INTO v_linked_count
+  FROM public.product_health_concerns
+  WHERE concern_id = p_concern_id;
+
+  -- Delete junction rows and parent concern in the same transaction
+  DELETE FROM public.product_health_concerns WHERE concern_id = p_concern_id;
+  DELETE FROM public.health_concerns WHERE id = p_concern_id;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'unlinked_products_count', v_linked_count
+  );
+END;
+$$;
+
+-- 5. Role-Restricted Entity Reference Checker RPC
 CREATE OR REPLACE FUNCTION public.check_entity_references(
   p_entity_type text,
   p_entity_id uuid
@@ -147,6 +262,17 @@ DECLARE
   v_can_delete boolean := true;
   v_message text := '';
 BEGIN
+  -- Security check: Restrict reference auditing to authorized CMS staff
+  IF NOT (
+    public.has_role(auth.uid(), 'admin'::app_role) OR
+    public.has_role(auth.uid(), 'editor'::app_role) OR
+    public.has_role(auth.uid(), 'content_manager'::app_role) OR
+    public.has_role(auth.uid(), 'inventory_manager'::app_role)
+  ) THEN
+    RAISE EXCEPTION 'Access denied: You do not have permission to inspect entity references.'
+      USING ERRCODE = '42501';
+  END IF;
+
   IF p_entity_type = 'product' THEN
     -- Check order history
     SELECT count(*) INTO v_orders_count
@@ -184,10 +310,14 @@ BEGIN
     FROM public.categories
     WHERE parent_id = p_entity_id;
 
-    IF v_products_count > 0 OR v_subcats_count > 0 THEN
+    IF v_subcats_count > 0 THEN
       v_can_delete := false;
-      v_message := format('Category has %s assigned product(s) and %s subcategory/subcategories.', v_products_count, v_subcats_count);
+      v_message := format('Category has %s subcategory(ies). Subcategories must be reassigned before deleting.', v_subcats_count);
+    ELSIF v_products_count > 0 THEN
+      v_can_delete := true; -- Can be deleted via delete_category_atomic which safely unassigns products
+      v_message := format('Category has %s assigned product(s) which will be safely unassigned.', v_products_count);
     ELSE
+      v_can_delete := true;
       v_message := 'Category is not referenced by any products or subcategories and can be safely deleted.';
     END IF;
 
@@ -203,17 +333,10 @@ BEGIN
     FROM public.product_health_concerns
     WHERE concern_id = p_entity_id;
 
-    IF v_concerns_count > 0 THEN
-      v_can_delete := false;
-      v_message := format('Health concern is linked to %s product(s). Please unlink before deleting.', v_concerns_count);
-    ELSE
-      v_message := 'Health concern is not linked to any products and can be safely deleted.';
-    END IF;
-
     RETURN jsonb_build_object(
-      'can_delete', v_can_delete,
+      'can_delete', true,
       'product_count', v_concerns_count,
-      'message', v_message
+      'message', format('Health concern is linked to %s product(s).', v_concerns_count)
     );
 
   ELSE
@@ -222,7 +345,7 @@ BEGIN
 END;
 $$;
 
--- 3. Expanded Site Settings Whitelist Policy for Public Storefront
+-- 6. Expanded Site Settings Whitelist Policy for Public Storefront
 DROP POLICY IF EXISTS "Public non-sensitive settings are readable" ON public.site_settings;
 CREATE POLICY "Public non-sensitive settings are readable"
 ON public.site_settings
@@ -243,7 +366,19 @@ USING (key IN (
   'quality_statement', 'stat_plant_based', 'stat_heritage', 'stat_quality', 'stat_delivery'
 ));
 
--- 4. Permissions
-GRANT EXECUTE ON FUNCTION public.save_bundle_atomic TO authenticated;
-GRANT EXECUTE ON FUNCTION public.check_entity_references TO authenticated;
+-- 7. Secure Access Grants & Revocations
+-- Explicitly revoke from PUBLIC and anon, grant only to authenticated CMS staff
+REVOKE ALL ON FUNCTION public.save_bundle_atomic(uuid, text, text, text, text, numeric, numeric, boolean, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.save_bundle_atomic(uuid, text, text, text, text, numeric, numeric, boolean, jsonb) TO authenticated;
 
+REVOKE ALL ON FUNCTION public.delete_bundle_atomic(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.delete_bundle_atomic(uuid) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.delete_category_atomic(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.delete_category_atomic(uuid) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.delete_health_concern_atomic(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.delete_health_concern_atomic(uuid) TO authenticated;
+
+REVOKE ALL ON FUNCTION public.check_entity_references(text, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.check_entity_references(text, uuid) TO authenticated;

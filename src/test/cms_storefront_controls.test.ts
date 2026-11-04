@@ -1,6 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { isCmsStaffRole, canAccessRoute } from "../lib/cmsRoles";
 import { resolveStoreSettings, DEFAULT_STORE_SETTINGS, clearStoreSettingsCache } from "../hooks/useStoreSettings";
+import {
+  validateProductPricing,
+  parseProductStockQuantity,
+  generateSlug,
+  validateSlug,
+  validateBundleInput,
+  validateInventoryAdjustment,
+  validateCategoryInput,
+  validateHealthConcernInput,
+} from "../lib/cmsValidation";
+import { CURATED_FALLBACK_TESTIMONIALS } from "../lib/testimonialsData";
 
 describe("CMS & Storefront Controls Verification", () => {
   beforeEach(() => {
@@ -11,47 +22,26 @@ describe("CMS & Storefront Controls Verification", () => {
   // 1. Stock Quantity 0 Preservation Bug Fix
   describe("Product Stock Quantity Handling", () => {
     it("preserves 0 as zero stock and does not replace it with default 100", () => {
-      // Root cause: `parseInt(form.stock_quantity) || 100` coerced 0 to falsy, resetting stock to 100
-      const parseStockFaulty = (input: string) => {
-        return parseInt(input) || 100;
-      };
+      // Legacy faulty version used `parseInt(input) || 100` which coerced 0 to 100
+      const legacyParseFaulty = (input: string) => parseInt(input, 10) || 100;
+      expect(legacyParseFaulty("0")).toBe(100);
 
-      const parseStockFixed = (input: string) => {
-        const parsed = parseInt(input, 10);
-        return isNaN(parsed) ? 100 : Math.max(0, parsed);
-      };
-
-      // Faulty version fails for "0"
-      expect(parseStockFaulty("0")).toBe(100); // Bad legacy behavior
-
-      // Fixed version correctly preserves 0
-      expect(parseStockFixed("0")).toBe(0);
-      expect(parseStockFixed("25")).toBe(25);
-      expect(parseStockFixed("")).toBe(100); // empty fallback
-      expect(parseStockFixed("-5")).toBe(0); // clamps non-negative
+      // Real production validator parseProductStockQuantity preserves 0 correctly
+      expect(parseProductStockQuantity("0")).toBe(0);
+      expect(parseProductStockQuantity(0)).toBe(0);
+      expect(parseProductStockQuantity("25")).toBe(25);
+      expect(parseProductStockQuantity("")).toBe(0);
+      expect(parseProductStockQuantity("-5")).toBe(0);
+      expect(parseProductStockQuantity(null)).toBe(0);
+      expect(parseProductStockQuantity(undefined)).toBe(0);
     });
 
-    it("validates inventory adjustment input and delta calculations", () => {
-      const validateInventoryAdjustment = (currentStock: number, inputString: string, reason: string) => {
-        const target = parseInt(inputString, 10);
-        if (isNaN(target) || target < 0) {
-          return { valid: false, error: "Stock quantity must be a non-negative number." };
-        }
-        const delta = target - currentStock;
-        if (delta === 0) {
-          return { valid: false, error: "The new quantity is identical to current stock." };
-        }
-        const validReasons = ["restock", "damage", "audit_correction", "sale_return", "manual_adjustment"];
-        if (!validReasons.includes(reason)) {
-          return { valid: false, error: "Invalid adjustment reason." };
-        }
-        return { valid: true, target, delta };
-      };
-
+    it("validates inventory adjustment input and delta calculations via production validator", () => {
       // Valid restock (+15)
       const res1 = validateInventoryAdjustment(10, "25", "restock");
       expect(res1.valid).toBe(true);
       expect(res1.delta).toBe(15);
+      expect(res1.target).toBe(25);
 
       // Valid reduction to zero stock (-10)
       const res2 = validateInventoryAdjustment(10, "0", "damage");
@@ -62,66 +52,63 @@ describe("CMS & Storefront Controls Verification", () => {
       // Negative stock rejected
       const res3 = validateInventoryAdjustment(10, "-5", "audit_correction");
       expect(res3.valid).toBe(false);
+      expect(res3.error).toContain("non-negative");
 
       // Identical stock rejected
       const res4 = validateInventoryAdjustment(10, "10", "restock");
       expect(res4.valid).toBe(false);
+      expect(res4.error).toContain("identical");
 
       // Invalid reason rejected
-      const res5 = validateInventoryAdjustment(10, "15", "unsupported_reason");
+      const res5 = validateInventoryAdjustment(10, "15", "unsupported_reason" as any);
       expect(res5.valid).toBe(false);
+      expect(res5.error).toContain("reason");
     });
 
-    it("validates product price and M.R.P. constraints", () => {
-      const validateProductPricing = (price: number, originalPrice?: number | null) => {
-        if (price <= 0) return { valid: false, error: "Price must be greater than zero" };
-        if (originalPrice !== null && originalPrice !== undefined && originalPrice < price) {
-          return { valid: false, error: "M.R.P. (original price) cannot be lower than the selling price" };
-        }
-        return { valid: true };
-      };
-
+    it("validates product price and M.R.P. constraints via production validator", () => {
+      // Zero price is strictly rejected (must be greater than zero)
       expect(validateProductPricing(0).valid).toBe(false);
+      expect(validateProductPricing(0).error).toBe("Product price must be greater than zero.");
+
+      // Negative price rejected
       expect(validateProductPricing(-50).valid).toBe(false);
-      expect(validateProductPricing(499, 399).valid).toBe(false); // MRP lower than selling price
+
+      // MRP lower than selling price rejected
+      const lowerMrp = validateProductPricing(499, 399);
+      expect(lowerMrp.valid).toBe(false);
+      expect(lowerMrp.error).toBe("Original price (M.R.P.) cannot be lower than the selling price.");
+
+      // Valid price and MRP
       expect(validateProductPricing(499, 599).valid).toBe(true);
       expect(validateProductPricing(499, null).valid).toBe(true);
+      expect(validateProductPricing(499, undefined).valid).toBe(true);
     });
   });
 
   // 2. Slug Validation & Uniqueness
   describe("Slug Generation & Validation", () => {
-    const slugify = (text: string) =>
-      text
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)+/g, "");
-
-    it("generates URL-safe slugs from title/name", () => {
-      expect(slugify("Organic Ashwagandha Powder 200g")).toBe("organic-ashwagandha-powder-200g");
-      expect(slugify("Heart & Cardiovascular Care!")).toBe("heart-cardiovascular-care");
-      expect(slugify("   Leading & Trailing Spaces   ")).toBe("leading-trailing-spaces");
+    it("generates URL-safe slugs using production generateSlug", () => {
+      expect(generateSlug("Organic Ashwagandha Powder 200g")).toBe("organic-ashwagandha-powder-200g");
+      expect(generateSlug("Heart & Cardiovascular Care!")).toBe("heart-cardiovascular-care");
+      expect(generateSlug("   Leading & Trailing Spaces   ")).toBe("leading-trailing-spaces");
+      expect(generateSlug("Special---Dashes--Test")).toBe("special-dashes-test");
     });
 
-    it("rejects duplicate or invalid slugs", () => {
-      const existingSlugs = ["ashwagandha-powder", "triphala-churna", "moringa-leaf"];
+    it("rejects duplicate or invalid slugs using production validateSlug", () => {
+      const existingCatalog = [
+        { id: "prod-0", slug: "ashwagandha-powder" },
+        { id: "prod-1", slug: "triphala-churna" },
+        { id: "prod-2", slug: "moringa-leaf" },
+      ];
 
-      const checkSlugValidity = (slug: string, currentId?: string, existing?: { id: string; slug: string }[]) => {
-        const clean = slug.trim();
-        if (!clean) return { valid: false, error: "Slug cannot be empty" };
-        if (!/^[a-z0-9-]+$/.test(clean)) return { valid: false, error: "Slug must contain only lowercase alphanumeric characters and hyphens" };
-        const duplicate = existing?.find(item => item.slug === clean && item.id !== currentId);
-        if (duplicate) return { valid: false, error: "Slug already exists in catalog" };
-        return { valid: true };
-      };
-
-      const catalog = existingSlugs.map((slug, idx) => ({ id: `prod-${idx}`, slug }));
-
-      expect(checkSlugValidity("").valid).toBe(false);
-      expect(checkSlugValidity("Invalid Slug!").valid).toBe(false);
-      expect(checkSlugValidity("ashwagandha-powder", "prod-new", catalog).valid).toBe(false);
-      expect(checkSlugValidity("ashwagandha-powder", "prod-0", catalog).valid).toBe(true); // Same item edit
-      expect(checkSlugValidity("brahmi-powder", "prod-new", catalog).valid).toBe(true);
+      expect(validateSlug("").valid).toBe(false);
+      expect(validateSlug("Invalid Slug!").valid).toBe(false);
+      // Duplicate against different item ID: rejected
+      expect(validateSlug("ashwagandha-powder", "prod-new", existingCatalog).valid).toBe(false);
+      // Same item edit retaining its own slug: allowed
+      expect(validateSlug("ashwagandha-powder", "prod-0", existingCatalog).valid).toBe(true);
+      // Unique new slug: allowed
+      expect(validateSlug("brahmi-powder", "prod-new", existingCatalog).valid).toBe(true);
     });
   });
 
@@ -232,50 +219,55 @@ describe("CMS & Storefront Controls Verification", () => {
     });
   });
 
-  // 4. Atomic Bundle Updates
-  describe("Atomic Bundle & Bundle Items Updates", () => {
-    it("ensures bundle replacement is atomic and rolls back if items are invalid", () => {
-      // Simulating the atomic RPC save_bundle_atomic behavior
-      const atomicBundleSave = (
-        bundlePayload: { name: string; price: number; slug: string },
-        items: Array<{ product_id: string; quantity: number }>
-      ) => {
-        if (!bundlePayload.name.trim()) throw new Error("Bundle name is required");
-        if (bundlePayload.price <= 0) throw new Error("Bundle price must be positive");
-        if (!items || items.length === 0) throw new Error("A bundle must contain at least one product");
-
-        for (const item of items) {
-          if (!item.product_id) throw new Error("Invalid bundle item: product required");
-          if (item.quantity <= 0) throw new Error("Bundle item quantity must be at least 1");
-        }
-
-        return {
-          success: true,
-          savedBundle: bundlePayload,
-          savedItemsCount: items.length,
-        };
-      };
-
+  // 4. Atomic Bundle Updates & Input Validation
+  describe("Atomic Bundle & Input Validation", () => {
+    it("ensures bundle input is verified via production validateBundleInput before RPC dispatch", () => {
       // Valid bundle
-      const validResult = atomicBundleSave(
-        { name: "Daily Immunity Kit", price: 999, slug: "daily-immunity-kit" },
+      const validResult = validateBundleInput(
+        "Daily Immunity Kit",
+        "daily-immunity-kit",
+        999,
         [
           { product_id: "p1", quantity: 1 },
           { product_id: "p2", quantity: 2 },
         ]
       );
-      expect(validResult.success).toBe(true);
-      expect(validResult.savedItemsCount).toBe(2);
+      expect(validResult.valid).toBe(true);
 
-      // Empty items must fail without corrupting existing bundle
-      expect(() =>
-        atomicBundleSave({ name: "Empty Kit", price: 500, slug: "empty-kit" }, [])
-      ).toThrow("A bundle must contain at least one product");
+      // Empty items must fail
+      const emptyItems = validateBundleInput("Empty Kit", "empty-kit", 500, []);
+      expect(emptyItems.valid).toBe(false);
+      expect(emptyItems.error).toBe("A bundle must contain at least one product.");
 
       // Non-positive price must fail
-      expect(() =>
-        atomicBundleSave({ name: "Free Kit", price: 0, slug: "free-kit" }, [{ product_id: "p1", quantity: 1 }])
-      ).toThrow("Bundle price must be positive");
+      const freeKit = validateBundleInput("Free Kit", "free-kit", 0, [{ product_id: "p1", quantity: 1 }]);
+      expect(freeKit.valid).toBe(false);
+      expect(freeKit.error).toBe("Bundle price must be greater than zero.");
+
+      // Missing name must fail
+      const noName = validateBundleInput(" ", "kit", 499, [{ product_id: "p1", quantity: 1 }]);
+      expect(noName.valid).toBe(false);
+      expect(noName.error).toBe("Bundle name is required.");
+
+      // Invalid item quantity must fail
+      const invalidQty = validateBundleInput(
+        "Kit",
+        "kit",
+        499,
+        [{ product_id: "p1", quantity: 0 }]
+      );
+      expect(invalidQty.valid).toBe(false);
+      expect(invalidQty.error).toBe("Bundle item quantity must be at least 1.");
+    });
+
+    it("validates categories and health concerns with production input validators", () => {
+      expect(validateCategoryInput("Superfoods", "superfoods").valid).toBe(true);
+      expect(validateCategoryInput(" ", "superfoods").valid).toBe(false);
+      expect(validateCategoryInput("Cat", "Invalid Slug!").valid).toBe(false);
+
+      expect(validateHealthConcernInput("Digestive Wellness", "digestive-wellness").valid).toBe(true);
+      expect(validateHealthConcernInput("", "digestive-wellness").valid).toBe(false);
+      expect(validateHealthConcernInput("Heart Care", "valid-123").valid).toBe(true);
     });
   });
 
@@ -424,16 +416,24 @@ describe("CMS & Storefront Controls Verification", () => {
       expect(activeBanners.map(b => b.id)).toEqual(["b2", "b5"]);
     });
 
-    it("verifies genuine customer testimonials are kept distinct from brand quality statements", () => {
+    it("verifies genuine customer testimonials, verified badge rules, and curated fallback layer", () => {
       // Testimonials must be customer-submitted reviews with star ratings (1-5) and active status
       const testimonials = [
-        { id: "t1", customer_name: "Anita Sharma", rating: 5, is_active: true, quote: "The Triphala changed my digestion!" },
-        { id: "t2", customer_name: "Rahul Verma", rating: 4, is_active: true, quote: "Great packaging and prompt delivery." },
-        { id: "t3", customer_name: "Pending Review", rating: 5, is_active: false, quote: "Awaiting approval." },
+        { id: "t1", name: "Anita Sharma", rating: 5, is_active: true, is_verified: true, quote: "The Triphala changed my digestion!" },
+        { id: "t2", name: "Rahul Verma", rating: 4, is_active: true, is_verified: false, quote: "Great packaging and prompt delivery." },
+        { id: "t3", name: "Pending Review", rating: 5, is_active: false, is_verified: false, quote: "Awaiting approval." },
       ];
 
       const publicTestimonials = testimonials.filter(t => t.is_active && t.rating >= 1 && t.rating <= 5);
       expect(publicTestimonials).toHaveLength(2);
+
+      // Verified badge must strictly require is_verified === true
+      expect(publicTestimonials[0].is_verified).toBe(true);
+      expect(publicTestimonials[1].is_verified).toBe(false);
+
+      // Curated fallback is non-empty and has proper structure when database has 0 records
+      expect(CURATED_FALLBACK_TESTIMONIALS.length).toBeGreaterThan(0);
+      expect(CURATED_FALLBACK_TESTIMONIALS.every(t => t.name && t.quote && t.rating >= 1 && t.rating <= 5)).toBe(true);
 
       // Brand quality statements ("The UVEDIQ Standard") are structured brand pillars, not user quotes
       const brandCommitments = [
@@ -442,7 +442,7 @@ describe("CMS & Storefront Controls Verification", () => {
         { title: "Plant-Powered Purity", description: "100% vegetarian and vegan certified ingredients" },
       ];
 
-      expect(brandCommitments.every(c => !("customer_name" in c))).toBe(true);
+      expect(brandCommitments.every(c => !("quote" in c))).toBe(true);
     });
 
     it("respects sort_order and active flags for categories and health concerns", () => {

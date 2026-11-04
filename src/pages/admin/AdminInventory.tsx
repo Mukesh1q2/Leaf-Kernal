@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Package, AlertTriangle, XCircle, History, SlidersHorizontal, Loader2 } from "lucide-react";
+import { validateInventoryAdjustment } from "@/lib/cmsValidation";
 
 interface ProductStock {
   id: string;
@@ -113,20 +114,20 @@ const AdminInventory = () => {
   const handleSaveAdjustment = async () => {
     if (!adjustingProduct) return;
 
-    const targetQty = parseInt(newQuantityInput, 10);
-    if (isNaN(targetQty) || targetQty < 0) {
-      toast({ title: "Invalid quantity", description: "Stock quantity must be a non-negative number.", variant: "destructive" });
-      return;
-    }
-
     const currentQty = adjustingProduct.stock_quantity ?? 0;
-    const delta = targetQty - currentQty;
-
-    if (delta === 0) {
-      toast({ title: "No change", description: "The new quantity is identical to current stock." });
-      setAdjustingProduct(null);
+    const validation = validateInventoryAdjustment(currentQty, newQuantityInput, selectedReason);
+    if (!validation.valid) {
+      if (validation.error === "The new quantity is identical to current stock.") {
+        toast({ title: "No change", description: validation.error });
+        setAdjustingProduct(null);
+        return;
+      }
+      toast({ title: "Invalid adjustment", description: validation.error, variant: "destructive" });
       return;
     }
+
+    const targetQty = validation.target!;
+    const delta = validation.delta!;
 
     setIsSubmittingAdjustment(true);
 
@@ -179,9 +180,9 @@ const AdminInventory = () => {
     }
   };
 
-  const outOfStock = products.filter((p) => (p.stock_quantity || 0) === 0);
-  const lowStock = products.filter((p) => (p.stock_quantity || 0) > 0 && (p.stock_quantity || 0) < 10);
-  const totalValue = products.reduce((s, p) => s + (p.stock_quantity || 0) * p.price, 0);
+  const outOfStock = products.filter((p) => (p.stock_quantity ?? 0) === 0);
+  const lowStock = products.filter((p) => (p.stock_quantity ?? 0) > 0 && (p.stock_quantity ?? 0) < 10);
+  const totalValue = products.reduce((s, p) => s + (p.stock_quantity ?? 0) * p.price, 0);
 
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
@@ -190,7 +191,7 @@ const AdminInventory = () => {
       p.slug.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
 
-    const qty = p.stock_quantity || 0;
+    const qty = p.stock_quantity ?? 0;
     if (statusFilter === "in_stock") return qty >= 10;
     if (statusFilter === "low_stock") return qty > 0 && qty < 10;
     if (statusFilter === "out_of_stock") return qty === 0;
@@ -198,7 +199,7 @@ const AdminInventory = () => {
   });
 
   const getStatus = (qty: number | null) => {
-    const q = qty || 0;
+    const q = qty ?? 0;
     if (q === 0) return { label: "Out of Stock", cls: "bg-red-100 text-red-800" };
     if (q < 10) return { label: "Low Stock", cls: "bg-yellow-100 text-yellow-800" };
     return { label: "In Stock", cls: "bg-green-100 text-green-800" };

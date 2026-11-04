@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Package, Loader2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { validateBundleInput, generateSlug } from "@/lib/cmsValidation";
 
 const AdminBundles = () => {
   const [bundles, setBundles] = useState<any[]>([]);
@@ -84,29 +85,28 @@ const AdminBundles = () => {
   }, 0);
 
   const save = async () => {
-    if (!form.name.trim()) {
-      toast({ title: "Name required", description: "Please enter a bundle name.", variant: "destructive" });
-      return;
-    }
+    const slug = generateSlug(form.slug || form.name);
     const priceNum = parseFloat(form.bundle_price);
-    if (isNaN(priceNum) || priceNum < 0) {
-      toast({ title: "Invalid price", description: "Bundle price must be a valid non-negative number.", variant: "destructive" });
-      return;
-    }
-    if (selectedProducts.length === 0) {
-      toast({ title: "Products required", description: "Please select at least one product for this bundle.", variant: "destructive" });
-      return;
-    }
 
-    const slug = (form.slug.trim() || form.name.trim()).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    if (!slug) {
-      toast({ title: "Invalid slug", description: "Slug must contain valid characters.", variant: "destructive" });
+    const validation = validateBundleInput(
+      form.name,
+      slug,
+      priceNum,
+      selectedProducts.map(sp => ({ product_id: sp.product_id, quantity: sp.quantity }))
+    );
+
+    if (!validation.valid) {
+      toast({
+        title: "Validation Error",
+        description: validation.error,
+        variant: "destructive",
+      });
       return;
     }
 
     setSaving(true);
 
-    // 1. Try atomic database RPC
+    // Atomic database RPC: updates bundle and replaces bundle_items in a single ACID transaction
     try {
       const { data: rpcData, error: rpcError } = await (supabase.rpc as any)("save_bundle_atomic", {
         p_bundle_id: editId || null,
@@ -120,68 +120,22 @@ const AdminBundles = () => {
         p_items: selectedProducts.map(sp => ({ product_id: sp.product_id, quantity: sp.quantity })),
       });
 
-      if (!rpcError) {
-        toast({ title: editId ? "Bundle updated successfully" : "Bundle created successfully" });
-        setSaving(false);
-        setDialogOpen(false);
-        fetchAll();
-        return;
+      if (rpcError) {
+        throw rpcError;
       }
-    } catch {
-      // Fall through to safe client-side transactional path if RPC not available
+
+      toast({ title: editId ? "Bundle updated successfully" : "Bundle created successfully" });
+      setSaving(false);
+      setDialogOpen(false);
+      fetchAll();
+    } catch (err: any) {
+      setSaving(false);
+      toast({
+        title: editId ? "Failed to update bundle" : "Failed to create bundle",
+        description: err?.message || "An error occurred while saving the bundle atomically.",
+        variant: "destructive",
+      });
     }
-
-    // 2. Safe transactional fallback
-    const payload = {
-      name: form.name.trim(),
-      slug,
-      description: form.description?.trim() || null,
-      image_url: form.image_url?.trim() || null,
-      bundle_price: priceNum,
-      original_total: originalTotal,
-      is_active: form.is_active,
-      updated_at: new Date().toISOString(),
-    };
-
-    let bundleId = editId;
-    if (editId) {
-      const { error: updateErr } = await supabase.from("product_bundles").update(payload).eq("id", editId);
-      if (updateErr) {
-        setSaving(false);
-        toast({ title: "Failed to update bundle", description: updateErr.message, variant: "destructive" });
-        return;
-      }
-      // Only delete old items after parent update succeeds
-      const { error: delErr } = await supabase.from("bundle_items").delete().eq("bundle_id", editId);
-      if (delErr) {
-        console.warn("Error clearing previous bundle items:", delErr);
-      }
-    } else {
-      const { data, error: insertErr } = await supabase.from("product_bundles").insert(payload).select("id").single();
-      if (insertErr || !data) {
-        setSaving(false);
-        toast({ title: "Failed to create bundle", description: insertErr?.message || "Insert failed", variant: "destructive" });
-        return;
-      }
-      bundleId = data.id;
-    }
-
-    if (bundleId && selectedProducts.length > 0) {
-      const { error: itemsErr } = await supabase.from("bundle_items").insert(
-        selectedProducts.map(sp => ({ bundle_id: bundleId!, product_id: sp.product_id, quantity: sp.quantity }))
-      );
-      if (itemsErr) {
-        setSaving(false);
-        toast({ title: "Warning: bundle saved but items failed", description: itemsErr.message, variant: "destructive" });
-        fetchAll();
-        return;
-      }
-    }
-
-    setSaving(false);
-    toast({ title: editId ? "Bundle updated successfully" : "Bundle created successfully" });
-    setDialogOpen(false);
-    fetchAll();
   };
 
   const promptDeleteBundle = (b: any) => {
@@ -196,15 +150,16 @@ const AdminBundles = () => {
     if (!deleteDialog.bundleId) return;
     setIsDeleting(true);
 
-    // Clean up bundle_items first to preserve integrity regardless of cascade constraint
-    await supabase.from("bundle_items").delete().eq("bundle_id", deleteDialog.bundleId);
+    // Call atomic bundle delete RPC which cleans up items and bundle transactionally
+    const { error: rpcError } = await (supabase.rpc as any)("delete_bundle_atomic", {
+      p_bundle_id: deleteDialog.bundleId,
+    });
 
-    const { error } = await supabase.from("product_bundles").delete().eq("id", deleteDialog.bundleId);
     setIsDeleting(false);
     setDeleteDialog(prev => ({ ...prev, open: false }));
 
-    if (error) {
-      toast({ title: "Failed to delete bundle", description: error.message, variant: "destructive" });
+    if (rpcError) {
+      toast({ title: "Failed to delete bundle", description: rpcError.message, variant: "destructive" });
     } else {
       toast({ title: "Bundle deleted successfully" });
       fetchAll();

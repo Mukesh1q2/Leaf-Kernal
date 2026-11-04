@@ -9,11 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Star, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Star, Loader2, CheckCircle2 } from "lucide-react";
 import ImageUpload from "@/components/admin/ImageUpload";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
-const emptyForm = { name: "", city: "", product: "", quote: "", photo_url: "", rating: "5", sort_order: "0", is_active: true };
+const emptyForm = { name: "", city: "", product: "", quote: "", photo_url: "", rating: "5", sort_order: "0", is_active: true, is_verified: false };
 
 const AdminTestimonials = () => {
   const [items, setItems] = useState<any[]>([]);
@@ -52,6 +52,7 @@ const AdminTestimonials = () => {
       rating: String(t.rating || 5),
       sort_order: String(t.sort_order || 0),
       is_active: t.is_active ?? true,
+      is_verified: t.is_verified ?? false,
     });
     setDialogOpen(true);
   };
@@ -80,6 +81,7 @@ const AdminTestimonials = () => {
       rating: validRating,
       sort_order: isNaN(sortOrder) ? 0 : sortOrder,
       is_active: form.is_active,
+      is_verified: form.is_verified,
     };
 
     if (editId) {
@@ -144,6 +146,7 @@ const AdminTestimonials = () => {
                 <TableHead>City</TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead>Rating</TableHead>
+                <TableHead>Verified</TableHead>
                 <TableHead>Quote</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -151,7 +154,7 @@ const AdminTestimonials = () => {
             </TableHeader>
             <TableBody>
               {items.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No testimonials yet</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No testimonials yet</TableCell></TableRow>
               )}
               {items.map((t) => (
                 <TableRow key={t.id}>
@@ -162,6 +165,15 @@ const AdminTestimonials = () => {
                     <div className="flex gap-0.5">
                       {[...Array(t.rating || 5)].map((_, i) => <Star key={i} size={12} className="fill-yellow-500 text-yellow-500" />)}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {t.is_verified ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">
+                        <CheckCircle2 size={12} /> Verified
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Standard</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm max-w-xs truncate">{t.quote}</TableCell>
                   <TableCell>
@@ -193,10 +205,19 @@ const AdminTestimonials = () => {
             <div><Label>Product Used</Label><Input value={form.product} onChange={(e) => setForm({ ...form, product: e.target.value })} placeholder="e.g. Ashwagandha Root Capsules" /></div>
             <div><Label>Customer Quote</Label><Textarea value={form.quote} onChange={(e) => setForm({ ...form, quote: e.target.value })} rows={3} placeholder="The product has helped my evening routine tremendously..." /></div>
             <div><Label>Customer Photo (optional)</Label><ImageUpload value={form.photo_url} onChange={(url) => setForm({ ...form, photo_url: url })} folder="testimonials" /></div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div><Label>Rating (1–5)</Label><Input type="number" min="1" max="5" value={form.rating} onChange={(e) => setForm({ ...form, rating: e.target.value })} /></div>
               <div><Label>Sort Order</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></div>
-              <div className="flex items-end pb-2"><label className="flex items-center gap-2 text-sm"><Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} /> Active</label></div>
+            </div>
+            <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/40">
+              <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                <Switch checked={form.is_verified} onCheckedChange={(v) => setForm({ ...form, is_verified: v })} />
+                <span>Verified Buyer / Customer</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+                <span>Active (Public)</span>
+              </label>
             </div>
             <Button onClick={save} disabled={saving} className="w-full">
               {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editId ? "Update Testimonial" : "Create Testimonial"}

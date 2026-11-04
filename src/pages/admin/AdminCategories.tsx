@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
+import { validateCategoryInput, generateSlug } from "@/lib/cmsValidation";
 
 const emptyForm = { name: "", slug: "", description: "", sort_order: "0", parent_id: "", image_url: "" };
 
@@ -61,13 +62,10 @@ const AdminCategories = () => {
   };
 
   const save = async () => {
-    if (!form.name.trim()) {
-      toast({ title: "Name required", description: "Please enter a category name.", variant: "destructive" });
-      return;
-    }
-    const slug = (form.slug.trim() || form.name.trim()).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    if (!slug) {
-      toast({ title: "Invalid slug", description: "Slug must contain valid alphanumeric characters.", variant: "destructive" });
+    const slug = generateSlug(form.slug || form.name);
+    const validation = validateCategoryInput(form.name, slug);
+    if (!validation.valid) {
+      toast({ title: "Validation Error", description: validation.error, variant: "destructive" });
       return;
     }
     const sortOrder = parseInt(form.sort_order, 10);
@@ -135,39 +133,26 @@ const AdminCategories = () => {
 
     setIsDeleting(true);
 
-    // If products reference this category, safely unassign them first to maintain referential integrity
-    if (deleteDialog.productCount > 0) {
-      const { error: unassignError } = await supabase
-        .from("products")
-        .update({ category_id: null })
-        .eq("category_id", deleteDialog.categoryId);
+    // Call atomic category deletion RPC: safely checks subcategories, unassigns products, and deletes category in a single transaction
+    const { error: rpcError } = await (supabase.rpc as any)("delete_category_atomic", {
+      p_category_id: deleteDialog.categoryId,
+    });
 
-      if (unassignError) {
-        setIsDeleting(false);
-        toast({
-          title: "Failed to unassign products",
-          description: unassignError.message,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    const { error } = await supabase.from("categories").delete().eq("id", deleteDialog.categoryId);
     setIsDeleting(false);
     setDeleteDialog((prev) => ({ ...prev, open: false }));
 
-    if (error) {
-      toast({ title: "Failed to delete category", description: error.message, variant: "destructive" });
-    } else {
-      toast({
-        title: "Category deleted",
-        description: deleteDialog.productCount > 0
-          ? `Category removed. ${deleteDialog.productCount} product(s) unassigned to Uncategorized.`
-          : "Category deleted successfully.",
-      });
-      fetch();
+    if (rpcError) {
+      toast({ title: "Failed to delete category", description: rpcError.message, variant: "destructive" });
+      return;
     }
+
+    toast({
+      title: "Category deleted",
+      description: deleteDialog.productCount > 0
+        ? `Category removed. ${deleteDialog.productCount} product(s) unassigned to Uncategorized.`
+        : "Category deleted successfully.",
+    });
+    fetch();
   };
 
   return (
