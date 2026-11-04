@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Heart } from "lucide-react";
+import { Plus, Pencil, Trash2, Heart, Loader2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 const emptyForm = { name: "", slug: "", description: "", icon: "", sort_order: "0" };
 
@@ -17,39 +18,140 @@ const AdminHealthConcerns = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    concernId: string | null;
+    concernName: string;
+    productCount: number;
+  }>({
+    open: false,
+    concernId: null,
+    concernName: "",
+    productCount: 0,
+  });
   const { toast } = useToast();
 
   const fetchData = async () => {
-    const { data } = await supabase.from("health_concerns").select("*").order("sort_order");
-    setItems(data || []);
+    const { data, error } = await supabase.from("health_concerns").select("*").order("sort_order");
+    if (error) {
+      toast({ title: "Failed to load health concerns", description: error.message, variant: "destructive" });
+    } else {
+      setItems(data || []);
+    }
   };
+
   useEffect(() => { fetchData(); }, []);
 
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (c: any) => {
     setEditId(c.id);
-    setForm({ name: c.name, slug: c.slug, description: c.description || "", icon: c.icon || "", sort_order: String(c.sort_order || 0) });
+    setForm({
+      name: c.name,
+      slug: c.slug,
+      description: c.description || "",
+      icon: c.icon || "",
+      sort_order: String(c.sort_order || 0),
+    });
     setDialogOpen(true);
   };
 
   const save = async () => {
-    const payload = { name: form.name, slug: form.slug || form.name.toLowerCase().replace(/\s+/g, "-"), description: form.description || null, icon: form.icon || null, sort_order: parseInt(form.sort_order) || 0 };
-    if (editId) {
-      await supabase.from("health_concerns").update(payload).eq("id", editId);
-      toast({ title: "Health concern updated" });
-    } else {
-      await supabase.from("health_concerns").insert(payload);
-      toast({ title: "Health concern created" });
+    if (!form.name.trim()) {
+      toast({ title: "Name required", description: "Please enter a health concern name.", variant: "destructive" });
+      return;
     }
+    const slug = (form.slug.trim() || form.name.trim()).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (!slug) {
+      toast({ title: "Invalid slug", description: "Slug must contain valid alphanumeric characters.", variant: "destructive" });
+      return;
+    }
+    const sortOrder = parseInt(form.sort_order, 10);
+
+    setSaving(true);
+    const payload = {
+      name: form.name.trim(),
+      slug,
+      description: form.description?.trim() || null,
+      icon: form.icon?.trim() || null,
+      sort_order: isNaN(sortOrder) ? 0 : sortOrder,
+    };
+
+    if (editId) {
+      const { error } = await supabase.from("health_concerns").update(payload).eq("id", editId);
+      if (error) {
+        setSaving(false);
+        toast({ title: "Failed to update health concern", description: error.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Health concern updated successfully" });
+    } else {
+      const { error } = await supabase.from("health_concerns").insert(payload);
+      if (error) {
+        setSaving(false);
+        toast({ title: "Failed to create health concern", description: error.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Health concern created successfully" });
+    }
+
+    setSaving(false);
     setDialogOpen(false);
     fetchData();
   };
 
-  const del = async (id: string) => {
-    if (!confirm("Delete?")) return;
-    await supabase.from("health_concerns").delete().eq("id", id);
-    toast({ title: "Deleted" });
-    fetchData();
+  const promptDelete = async (c: any) => {
+    const { count } = await supabase
+      .from("product_health_concerns")
+      .select("*", { count: "exact", head: true })
+      .eq("concern_id", c.id);
+
+    setDeleteDialog({
+      open: true,
+      concernId: c.id,
+      concernName: c.name,
+      productCount: count || 0,
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteDialog.concernId) return;
+    setIsDeleting(true);
+
+    // If products are linked, safely unlink them first to avoid orphaned associations or FK blocks
+    if (deleteDialog.productCount > 0) {
+      const { error: unlinkError } = await supabase
+        .from("product_health_concerns")
+        .delete()
+        .eq("concern_id", deleteDialog.concernId);
+
+      if (unlinkError) {
+        setIsDeleting(false);
+        toast({
+          title: "Failed to unlink products",
+          description: unlinkError.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    const { error } = await supabase.from("health_concerns").delete().eq("id", deleteDialog.concernId);
+    setIsDeleting(false);
+    setDeleteDialog(prev => ({ ...prev, open: false }));
+
+    if (error) {
+      toast({ title: "Failed to delete health concern", description: error.message, variant: "destructive" });
+    } else {
+      toast({
+        title: "Health concern deleted",
+        description: deleteDialog.productCount > 0
+          ? `Concern deleted and unlinked from ${deleteDialog.productCount} product(s).`
+          : "Health concern deleted successfully.",
+      });
+      fetchData();
+    }
   };
 
   return (
@@ -74,7 +176,7 @@ const AdminHealthConcerns = () => {
                   <TableCell>{c.sort_order}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => del(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => promptDelete(c)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -87,15 +189,35 @@ const AdminHealthConcerns = () => {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editId ? "Edit" : "New"} Health Concern</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-            <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></div>
+            <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Immunity" /></div>
+            <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="immunity" /></div>
             <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} /></div>
-            <div><Label>Icon (emoji or class)</Label><Input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} placeholder="🫁 or icon name" /></div>
+            <div><Label>Icon (emoji or icon name)</Label><Input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} placeholder="🛡️ or Shield" /></div>
             <div><Label>Sort Order</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></div>
-            <Button onClick={save} className="w-full">{editId ? "Update" : "Create"}</Button>
+            <Button onClick={save} disabled={saving} className="w-full">
+              {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editId ? "Update Concern" : "Create Concern"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog(prev => ({ ...prev, open }))}
+        title={`Delete Health Concern "${deleteDialog.concernName}"`}
+        description={
+          deleteDialog.productCount > 0
+            ? `Warning: This health concern is currently linked to ${deleteDialog.productCount} product(s).\n\nDeleting this concern will automatically and safely unlink it from these ${deleteDialog.productCount} product(s). Are you sure you want to proceed?`
+            : `Are you sure you want to delete "${deleteDialog.concernName}"? This action cannot be undone.`
+        }
+        confirmText={
+          deleteDialog.productCount > 0
+            ? "Unlink Products & Delete"
+            : "Delete Concern"
+        }
+        loading={isDeleting}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 };

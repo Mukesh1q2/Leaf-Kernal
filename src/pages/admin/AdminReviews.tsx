@@ -6,28 +6,46 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Check, X, Star, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 const AdminReviews = () => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [filter, setFilter] = useState("all");
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const fetchReviews = async () => {
-    const { data } = await supabase.from("reviews").select("*, products(name)").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("reviews").select("*, products(name)").order("created_at", { ascending: false });
+    if (error) {
+      toast({ title: "Failed to load reviews", description: error.message, variant: "destructive" });
+      return;
+    }
     setReviews(data || []);
   };
 
   useEffect(() => { fetchReviews(); }, []);
 
   const updateStatus = async (id: string, is_approved: boolean) => {
-    await supabase.from("reviews").update({ is_approved }).eq("id", id);
+    const { error } = await supabase.from("reviews").update({ is_approved }).eq("id", id);
+    if (error) {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+      return;
+    }
     toast({ title: is_approved ? "Review approved" : "Review rejected" });
     fetchReviews();
   };
 
-  const deleteReview = async (id: string) => {
-    if (!confirm("Delete this review permanently?")) return;
-    await supabase.from("reviews").delete().eq("id", id);
+  const confirmDeleteReview = async () => {
+    if (!deleteTargetId) return;
+    setIsDeleting(true);
+    const { error } = await supabase.from("reviews").delete().eq("id", deleteTargetId);
+    setIsDeleting(false);
+    setDeleteTargetId(null);
+    if (error) {
+      toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
+      return;
+    }
     toast({ title: "Review deleted" });
     fetchReviews();
   };
@@ -95,7 +113,7 @@ const AdminReviews = () => {
                           <X className="h-4 w-4 text-yellow-600" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon" onClick={() => deleteReview(r.id)}>
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteTargetId(r.id)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
@@ -106,6 +124,16 @@ const AdminReviews = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!deleteTargetId}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        title="Delete Review"
+        description="Are you sure you want to permanently delete this customer review? This cannot be undone."
+        confirmText="Delete Review"
+        loading={isDeleting}
+        onConfirm={confirmDeleteReview}
+      />
     </div>
   );
 };

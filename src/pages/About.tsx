@@ -2,37 +2,40 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
 import { Leaf, Heart, Award, Globe } from "lucide-react";
-
-const values = [
-  { icon: Leaf, title: "Rooted in Ayurveda", desc: "Every product is formulated using time-tested Ayurvedic principles, bringing ancient wisdom to modern wellness." },
-  { icon: Heart, title: "Plant-Powered Purity", desc: "100% plant-based, no fillers, no artificial additives. Just the purest superfoods nature has to offer." },
-  { icon: Award, title: "FSSAI Licensed & Pure", desc: "All our formulations comply with rigorous FSSAI standards and are batch-tested for safety, botanical potency, and zero artificial fillers." },
-  { icon: Globe, title: "Sustainably Sourced", desc: "We partner with responsible growers across India, supporting ethical agriculture and protecting the environment." },
-];
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 const About = () => {
+  const { settings } = useStoreSettings();
+
+  const values = [
+    { icon: Leaf, title: "Rooted in Ayurveda", desc: "Every product is formulated using time-tested Ayurvedic principles, bringing ancient wisdom to modern wellness." },
+    { icon: Heart, title: "Plant-Powered Purity", desc: "100% plant-based, no fillers, no artificial additives. Just the purest superfoods nature has to offer." },
+    { icon: Award, title: "FSSAI Licensed & Pure", desc: `All our formulations comply with rigorous FSSAI standards (Lic. ${settings.fssai_number}) and are batch-tested for safety, botanical potency, and zero artificial fillers.` },
+    { icon: Globe, title: "Sustainably Sourced", desc: "We partner with responsible growers across India, supporting ethical agriculture and protecting the environment." },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
-        title="About Our Story & Ayurvedic Roots"
-        description="Discover the story of Leaf & Kernel — bridging ancient Ayurvedic wisdom with pure, plant-powered superfoods."
+        title={`About Our Story & Ayurvedic Roots | ${settings.store_name}`}
+        description={`Discover the story of ${settings.store_name} — bridging ancient Ayurvedic wisdom with pure, plant-powered superfoods.`}
         url="https://leafandkernel.com/about"
       />
       <Header />
       <main>
         <div className="bg-primary py-16 text-center">
           <h1 className="text-3xl md:text-5xl font-heading font-bold text-primary-foreground">Our Story</h1>
-          <p className="text-primary-foreground/70 mt-3 max-w-lg mx-auto">Rooted in tradition, growing towards a healthier tomorrow</p>
+          <p className="text-primary-foreground/70 mt-3 max-w-lg mx-auto">{settings.store_tagline}</p>
         </div>
 
         <section className="container py-16">
           <div className="max-w-3xl mx-auto">
             <h2 className="text-2xl md:text-3xl font-heading font-bold text-foreground mb-6">From Seed to Superfood</h2>
             <div className="prose text-foreground leading-relaxed space-y-4">
-              <p>Leaf & Kernel was born from a simple belief: that the ancient wisdom of Ayurveda holds the key to modern wellness. We saw a gap between the superfoods our grandmothers swore by and the fast-paced lives we lead today.</p>
+              <p>{settings.store_name} was born from a simple belief: that the ancient wisdom of Ayurveda holds the key to modern wellness. We saw a gap between the superfoods our grandmothers swore by and the fast-paced lives we lead today.</p>
               <p>Our journey began with a commitment to pure botanicals, discovering the incredible potential of moringa, ashwagandha, wheatgrass, and nutrient-dense lotus seeds. We partner with dedicated growers who share our passion for purity and sustainable harvesting.</p>
-              <p>Every UVEDIQ product by Leaf &amp; Kernel Superfoods Company is a bridge between tradition and modern nutrition — carefully formulated, rigorously tested, and crafted to bring you the very best of plant-based wellness.</p>
-              <p>Our mission is straightforward: to make pure, authentic Ayurvedic superfoods accessible, honest, and part of everyone's daily wellness routine with zero compromises on quality.</p>
+              <p>Every UVEDIQ product by {settings.store_name} Superfoods Company is a bridge between tradition and modern nutrition — carefully formulated, rigorously tested, and crafted to bring you the very best of plant-based wellness.</p>
+              <p>{settings.quality_statement}</p>
             </div>
           </div>
         </section>

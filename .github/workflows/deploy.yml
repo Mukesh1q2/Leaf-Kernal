@@ -30,7 +30,6 @@ jobs:
 
       - name: Code Quality (Lint)
         run: npm run lint
-        continue-on-error: true
 
       - name: Run automated test suite
         env:

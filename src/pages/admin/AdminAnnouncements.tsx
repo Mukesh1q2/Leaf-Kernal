@@ -17,6 +17,7 @@ import {
   Layers,
   ArrowUpRight,
 } from "lucide-react";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -71,6 +72,8 @@ export const AdminAnnouncements = () => {
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [copiedPreview, setCopiedPreview] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Active form state
   const [form, setForm] = useState<AnnouncementBarConfig>({ ...DEFAULT_ANNOUNCEMENT_BAR });
@@ -231,7 +234,7 @@ export const AdminAnnouncements = () => {
     setScheduleError(null);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (announcements.length <= 1) {
       toast({
         title: "Cannot Delete",
@@ -241,11 +244,26 @@ export const AdminAnnouncements = () => {
       return;
     }
 
-    if (!window.confirm("Are you sure you want to delete this announcement?")) return;
+    setDeleteTargetId(id);
+  };
 
-    await deleteAnnouncementInCms(id);
-    toast({ title: "Announcement deleted" });
-    loadData();
+  const confirmDeleteAnnouncement = async () => {
+    if (!deleteTargetId) return;
+    setIsDeleting(true);
+    try {
+      await deleteAnnouncementInCms(deleteTargetId);
+      toast({ title: "Announcement deleted" });
+      loadData();
+    } catch (err: any) {
+      toast({
+        title: "Delete Failed",
+        description: err?.message || "Failed to delete announcement",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteTargetId(null);
+    }
   };
 
   if (loading) {
@@ -924,6 +942,16 @@ export const AdminAnnouncements = () => {
           </Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTargetId}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        title="Delete Announcement Bar"
+        description="Are you sure you want to delete this announcement bar? This action cannot be undone."
+        confirmText="Delete Announcement"
+        loading={isDeleting}
+        onConfirm={confirmDeleteAnnouncement}
+      />
     </div>
   );
 };

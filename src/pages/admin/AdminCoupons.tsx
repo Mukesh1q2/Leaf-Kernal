@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Copy, Eye, EyeOff, Calendar, Target, Sparkles } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 interface CouponFormData {
   code: string;
@@ -61,6 +62,8 @@ const AdminCoupons = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [form, setForm] = useState<CouponFormData>(emptyForm);
   const { toast } = useToast();
 
@@ -197,9 +200,12 @@ const AdminCoupons = () => {
     fetchCoupons();
   };
 
-  const deleteCoupon = async (id: string) => {
-    if (!confirm("Delete this coupon?")) return;
-    const { error } = await supabase.from("coupons").delete().eq("id", id);
+  const confirmDeleteCoupon = async () => {
+    if (!deleteTargetId) return;
+    setIsDeleting(true);
+    const { error } = await supabase.from("coupons").delete().eq("id", deleteTargetId);
+    setIsDeleting(false);
+    setDeleteTargetId(null);
     if (error) {
       toast({ title: "Error deleting coupon", description: error.message, variant: "destructive" });
       return;
@@ -370,7 +376,7 @@ const AdminCoupons = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => deleteCoupon(c.id)}
+                        onClick={() => setDeleteTargetId(c.id)}
                         className="text-destructive"
                         title="Delete"
                       >
@@ -661,6 +667,16 @@ const AdminCoupons = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTargetId}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        title="Delete Coupon"
+        description="Are you sure you want to delete this coupon? This action cannot be undone."
+        confirmText="Delete Coupon"
+        loading={isDeleting}
+        onConfirm={confirmDeleteCoupon}
+      />
     </div>
   );
 };

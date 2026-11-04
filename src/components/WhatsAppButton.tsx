@@ -1,11 +1,14 @@
 import { MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
-const WHATSAPP_NUMBER = "918796745590";
 const DEFAULT_MESSAGE = "Hi! I have a question about UVEDIQ · Leaf & Kernel products.";
 
 const WhatsAppButton = () => {
-  const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(DEFAULT_MESSAGE)}`;
+  const { settings } = useStoreSettings();
+  const rawNumber = settings.whatsapp_number || "918796745590";
+  const formattedNumber = rawNumber.replace(/\D/g, "");
+  const url = `https://wa.me/${formattedNumber}?text=${encodeURIComponent(DEFAULT_MESSAGE)}`;
   const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {

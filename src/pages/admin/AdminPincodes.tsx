@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, MapPin, Search } from "lucide-react";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 const emptyForm = { pincode: "", city: "", state: "", estimated_days: "5", cod_available: true };
 
@@ -16,6 +17,9 @@ const AdminPincodes = () => {
   const [items, setItems] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [search, setSearch] = useState("");
   const { toast } = useToast();
@@ -34,21 +38,57 @@ const AdminPincodes = () => {
   };
 
   const save = async () => {
-    const payload = { pincode: form.pincode, city: form.city || null, state: form.state || null, estimated_days: parseInt(form.estimated_days) || 5, cod_available: form.cod_available };
+    const cleanPincode = form.pincode.trim();
+    if (!/^\d{6}$/.test(cleanPincode)) {
+      toast({ title: "Invalid Pincode", description: "Pincode must be exactly 6 digits", variant: "destructive" });
+      return;
+    }
+    const days = parseInt(form.estimated_days, 10);
+    if (isNaN(days) || days < 1) {
+      toast({ title: "Invalid Estimated Days", description: "Estimated delivery days must be 1 or more", variant: "destructive" });
+      return;
+    }
+
+    setSaving(true);
+    const payload = {
+      pincode: cleanPincode,
+      city: form.city.trim() || null,
+      state: form.state.trim() || null,
+      estimated_days: days,
+      cod_available: form.cod_available,
+    };
+
     if (editId) {
-      await supabase.from("serviceable_pincodes").update(payload).eq("id", editId);
+      const { error } = await supabase.from("serviceable_pincodes").update(payload).eq("id", editId);
+      setSaving(false);
+      if (error) {
+        toast({ title: "Error updating pincode", description: error.message, variant: "destructive" });
+        return;
+      }
       toast({ title: "Pincode updated" });
     } else {
-      await supabase.from("serviceable_pincodes").insert(payload);
+      const { error } = await supabase.from("serviceable_pincodes").insert(payload);
+      setSaving(false);
+      if (error) {
+        toast({ title: "Error adding pincode", description: error.message, variant: "destructive" });
+        return;
+      }
       toast({ title: "Pincode added" });
     }
     setDialogOpen(false);
     fetchData();
   };
 
-  const del = async (id: string) => {
-    if (!confirm("Remove this pincode?")) return;
-    await supabase.from("serviceable_pincodes").delete().eq("id", id);
+  const confirmDeletePincode = async () => {
+    if (!deleteTargetId) return;
+    setIsDeleting(true);
+    const { error } = await supabase.from("serviceable_pincodes").delete().eq("id", deleteTargetId);
+    setIsDeleting(false);
+    setDeleteTargetId(null);
+    if (error) {
+      toast({ title: "Error removing pincode", description: error.message, variant: "destructive" });
+      return;
+    }
     toast({ title: "Pincode removed" });
     fetchData();
   };
@@ -87,7 +127,7 @@ const AdminPincodes = () => {
                   <TableCell>{p.cod_available ? "✅" : "❌"}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => del(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteTargetId(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -107,10 +147,22 @@ const AdminPincodes = () => {
             </div>
             <div><Label>Estimated Delivery Days</Label><Input type="number" value={form.estimated_days} onChange={(e) => setForm({ ...form, estimated_days: e.target.value })} /></div>
             <label className="flex items-center gap-2 text-sm"><Switch checked={form.cod_available} onCheckedChange={(v) => setForm({ ...form, cod_available: v })} /> COD Available</label>
-            <Button onClick={save} className="w-full">{editId ? "Update" : "Add"}</Button>
+            <Button onClick={save} disabled={saving} className="w-full">
+              {saving ? "Saving..." : editId ? "Update" : "Add"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTargetId}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        title="Remove Pincode"
+        description="Are you sure you want to remove this serviceable pincode? Customers in this area will no longer see delivery availability."
+        confirmText="Remove Pincode"
+        loading={isDeleting}
+        onConfirm={confirmDeletePincode}
+      />
     </div>
   );
 };

@@ -11,10 +11,15 @@ const Blog = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("blog_posts").select("*").order("published_at", { ascending: false }).then(({ data }) => {
-      setPosts(data || []);
-      setLoading(false);
-    });
+    supabase
+      .from("blog_posts")
+      .select("*")
+      .eq("is_published", true)
+      .order("published_at", { ascending: false })
+      .then(({ data }) => {
+        setPosts(data || []);
+        setLoading(false);
+      });
   }, []);
 
   return (

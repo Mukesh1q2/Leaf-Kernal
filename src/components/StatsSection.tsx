@@ -1,14 +1,17 @@
 import { motion } from "framer-motion";
 import { Leaf, Award, ShieldCheck, Truck } from "lucide-react";
-
-const stats = [
-  { icon: Leaf, value: "100%", label: "Plant-Based", desc: "Pure botanicals without fillers or additives" },
-  { icon: Award, value: "Pure", label: "Ayurvedic Heritage", desc: "Rooted in classical wellness traditions" },
-  { icon: ShieldCheck, value: "Lab-Tested", label: "Quality Assured", desc: "FSSAI licensed & standardized ingredients" },
-  { icon: Truck, value: "Pan-India", label: "Tracked Delivery", desc: "Fast & reliable doorstep dispatch" },
-];
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 const StatsSection = () => {
+  const { settings } = useStoreSettings();
+
+  const stats = [
+    { icon: Leaf, value: settings.stat_plant_based, label: "Plant-Based", desc: "Pure botanicals without fillers or additives" },
+    { icon: Award, value: settings.stat_heritage, label: "Ayurvedic Heritage", desc: "Rooted in classical wellness traditions" },
+    { icon: ShieldCheck, value: settings.stat_quality, label: "Quality Assured", desc: `FSSAI licensed (#${settings.fssai_number}) ingredients` },
+    { icon: Truck, value: settings.stat_delivery, label: "Tracked Delivery", desc: `Free shipping above ₹${settings.free_shipping_threshold}` },
+  ];
+
   return (
     <section className="bg-primary py-16 md:py-20">
       <div className="container">

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Image, Upload, Trash2, Copy, Check, Search, RefreshCw, Loader2, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 interface StorageFile {
   name: string;
@@ -31,6 +32,8 @@ const AdminMedia = () => {
   const [search, setSearch] = useState("");
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -117,15 +120,19 @@ const AdminMedia = () => {
     setTimeout(() => setCopiedUrl(null), 2000);
   };
 
-  const deleteMedia = async (fileName: string) => {
-    if (!confirm(`Are you sure you want to delete ${fileName}?`)) return;
+  const confirmDeleteMedia = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      const { error } = await supabase.storage.from("product-images").remove([`uploads/${fileName}`]);
+      const { error } = await supabase.storage.from("product-images").remove([`uploads/${deleteTarget}`]);
       if (error) throw error;
       toast({ title: "Asset deleted" });
+      setDeleteTarget(null);
       fetchMedia();
     } catch (e: any) {
       toast({ title: "Delete failed", description: e.message, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -225,7 +232,7 @@ const AdminMedia = () => {
                     <ExternalLink className="h-4 w-4" />
                   </a>
                   <button
-                    onClick={() => deleteMedia(file.name)}
+                    onClick={() => setDeleteTarget(file.name)}
                     className="p-1.5 rounded-md bg-background/90 hover:bg-background text-destructive transition-colors"
                     title="Delete Image"
                   >
@@ -246,6 +253,16 @@ const AdminMedia = () => {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete Media Asset"
+        description={`Are you sure you want to delete ${deleteTarget}? This file will be removed from Cloud Storage.`}
+        confirmText="Delete Asset"
+        loading={isDeleting}
+        onConfirm={confirmDeleteMedia}
+      />
     </div>
   );
 };

@@ -6,11 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[+]?[\d\s().-]{7,}$/;
 
 const Contact = () => {
+  const { settings } = useStoreSettings();
   const [form, setForm] = useState({ name: "", email: "", phone: "", subject: "", message: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -77,9 +79,9 @@ const Contact = () => {
                   <div>
                     <h3 className="font-semibold text-foreground">Email</h3>
                     <p className="text-muted-foreground">
-                      <a href="mailto:customercare@leafandkernel.com" className="hover:text-secondary transition-colors">customercare@leafandkernel.com</a>
+                      <a href={`mailto:${settings.contact_email}`} className="hover:text-secondary transition-colors">{settings.contact_email}</a>
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">hello@leafandkernel.com</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Response within 24 hours</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
@@ -87,9 +89,9 @@ const Contact = () => {
                   <div>
                     <h3 className="font-semibold text-foreground">Phone &amp; WhatsApp</h3>
                     <p className="text-muted-foreground flex flex-col sm:flex-row sm:gap-3">
-                      <a href="tel:+918796745590" className="hover:text-secondary transition-colors">+91 8796745590</a>
+                      <a href={`tel:${settings.support_phone}`} className="hover:text-secondary transition-colors">{settings.support_phone}</a>
                       <a
-                        href="https://wa.me/918796745590?text=Hi!%20I%20have%20a%20question%20about%20UVEDIQ%20products."
+                        href={`https://wa.me/${settings.whatsapp_number}?text=Hi!%20I%20have%20a%20question%20about%20UVEDIQ%20products.`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-secondary font-medium hover:underline inline-flex items-center gap-1"
@@ -105,14 +107,12 @@ const Contact = () => {
                   <div>
                     <h3 className="font-semibold text-foreground">Registered Office</h3>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                      LEAF AND KERNEL SUPERFOODS COMPANY<br />
-                      Shop No. 4, Ground Floor, F-8/25, Sector 15,<br />
-                      Rohini, New Delhi, North Delhi, Delhi – 110089, India<br />
-                      <span className="text-xs text-muted-foreground/80">(Landmark: Near Happy Associates)</span>
+                      {settings.store_name.toUpperCase()}<br />
+                      {settings.business_address}
                     </p>
                     <div className="mt-2 pt-2 border-t border-border/60 text-xs text-muted-foreground space-y-0.5">
-                      <p><strong>GSTIN:</strong> 07AANFL1400G1ZO</p>
-                      <p><strong>FSSAI License:</strong> 13326998000385</p>
+                      <p><strong>GSTIN:</strong> {settings.gstin}</p>
+                      <p><strong>FSSAI License:</strong> {settings.fssai_number}</p>
                     </div>
                   </div>
                 </div>

@@ -41,10 +41,10 @@ const Header = () => {
     supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }).then(({ data }) => setIsAdmin(!!data));
   }, [user]);
 
-  // Load dynamic nav data
+  // Load dynamic nav data respecting sort_order
   useEffect(() => {
-    supabase.from("categories").select("slug,name").order("name").then(({ data }) => setCategories(data || []));
-    supabase.from("health_concerns").select("slug,name").order("name").then(({ data }) => setConcerns(data || []));
+    supabase.from("categories").select("slug,name").order("sort_order").then(({ data }) => setCategories(data || []));
+    supabase.from("health_concerns").select("slug,name").order("sort_order").then(({ data }) => setConcerns(data || []));
   }, []);
 
   const navLinks = [
@@ -57,6 +57,7 @@ const Header = () => {
         ...categories.map((c) => ({ label: c.name, href: `/shop?category=${c.slug}` })),
       ],
     },
+    { label: "Combos & Bundles", href: "/bundles" },
     ...(concerns.length > 0 ? [{
       label: "Shop by Goal",
       href: "/shop",

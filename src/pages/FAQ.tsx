@@ -11,7 +11,12 @@ const FAQ = () => {
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from("faqs").select("*").order("sort_order").then(({ data }) => setFaqs(data || []));
+    supabase
+      .from("faqs")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order")
+      .then(({ data }) => setFaqs(data || []));
   }, []);
 
   return (

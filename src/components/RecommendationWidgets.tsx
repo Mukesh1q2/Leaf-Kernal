@@ -8,9 +8,31 @@ export const TrendingProducts = () => {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.rpc("get_trending_products", { p_limit: 8 });
-      setProducts(data || []);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase.rpc("get_trending_products" as any, { p_limit: 8 });
+        if (!error && data && data.length > 0) {
+          setProducts(data);
+        } else {
+          // Fallback to top-rated active products from catalog
+          const { data: fallbackData } = await supabase
+            .from("products")
+            .select("*")
+            .eq("is_active", true)
+            .order("rating", { ascending: false })
+            .limit(8);
+          setProducts(fallbackData || []);
+        }
+      } catch {
+        const { data: fallbackData } = await supabase
+          .from("products")
+          .select("*")
+          .eq("is_active", true)
+          .order("rating", { ascending: false })
+          .limit(8);
+        setProducts(fallbackData || []);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
   if (!loading && products.length === 0) return null;
@@ -24,9 +46,29 @@ export const RecommendedForYou = () => {
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     (async () => {
-      const { data } = await supabase.rpc("get_recommended_products", { p_user_id: user.id, p_limit: 8 });
-      setProducts(data || []);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase.rpc("get_recommended_products" as any, { p_user_id: user.id, p_limit: 8 });
+        if (!error && data && data.length > 0) {
+          setProducts(data);
+        } else {
+          // Fallback to active catalog products
+          const { data: fallbackData } = await supabase
+            .from("products")
+            .select("*")
+            .eq("is_active", true)
+            .limit(8);
+          setProducts(fallbackData || []);
+        }
+      } catch {
+        const { data: fallbackData } = await supabase
+          .from("products")
+          .select("*")
+          .eq("is_active", true)
+          .limit(8);
+        setProducts(fallbackData || []);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [user]);
   if (!user || (!loading && products.length === 0)) return null;
@@ -38,9 +80,31 @@ export const FrequentlyBoughtTogether = ({ productId }: { productId: string }) =
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.rpc("get_frequently_bought_together", { p_product_id: productId, p_limit: 4 });
-      setProducts(data || []);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase.rpc("get_frequently_bought_together" as any, { p_product_id: productId, p_limit: 4 });
+        if (!error && data && data.length > 0) {
+          setProducts(data);
+        } else {
+          // Fallback to complementary active products excluding current product
+          const { data: fallbackData } = await supabase
+            .from("products")
+            .select("*")
+            .eq("is_active", true)
+            .neq("id", productId)
+            .limit(4);
+          setProducts(fallbackData || []);
+        }
+      } catch {
+        const { data: fallbackData } = await supabase
+          .from("products")
+          .select("*")
+          .eq("is_active", true)
+          .neq("id", productId)
+          .limit(4);
+        setProducts(fallbackData || []);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [productId]);
   if (!loading && products.length === 0) return null;

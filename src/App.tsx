@@ -16,6 +16,7 @@ import Index from "./pages/Index";
 
 // Lazy imports for pages
 const Shop = lazy(() => import("./pages/Shop"));
+const Bundles = lazy(() => import("./pages/Bundles"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
 const Cart = lazy(() => import("./pages/Cart"));
 const Auth = lazy(() => import("./pages/Auth"));
@@ -94,6 +95,7 @@ const App = () => (
                   <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/shop" element={<Shop />} />
+                    <Route path="/bundles" element={<Bundles />} />
                     <Route path="/product/:slug" element={<ProductDetail />} />
                     <Route path="/cart" element={<Cart />} />
                     <Route path="/wishlist" element={<Wishlist />} />

@@ -31,11 +31,23 @@ interface Product {
 interface Category { id: string; name: string; slug: string; parent_id?: string | null; }
 interface HealthConcern { id: string; name: string; slug: string; }
 
+interface PromoBanner {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  image_url: string | null;
+  cta_text: string | null;
+  cta_link: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+}
+
 const Shop = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [concerns, setConcerns] = useState<HealthConcern[]>([]);
   const [promotions, setPromotions] = useState<StorefrontCoupon[]>([]);
+  const [promoBanner, setPromoBanner] = useState<PromoBanner | null>(null);
   const [concernProductIds, setConcernProductIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -61,15 +73,17 @@ const Shop = () => {
     setLoading(true);
     setFetchError(null);
     try {
-      const [{ data: prods, error: pErr }, { data: cats, error: cErr }, { data: cons, error: hErr }, activePromos] = await Promise.all([
+      const [{ data: prods, error: pErr }, { data: cats, error: cErr }, { data: cons, error: hErr }, { data: bannerData, error: bErr }, activePromos] = await Promise.all([
         supabase.from("products").select("*").eq("is_active", true),
         supabase.from("categories").select("*").order("sort_order"),
         supabase.from("health_concerns").select("*").order("sort_order"),
+        supabase.from("banners").select("*").eq("position", "promo").eq("is_active", true).order("sort_order"),
         fetchStorefrontPromotions(),
       ]);
       if (pErr) console.error("Error fetching products:", pErr);
       if (cErr) console.error("Error fetching categories:", cErr);
       if (hErr) console.error("Error fetching health concerns:", hErr);
+      if (bErr) console.error("Error fetching promo banners:", bErr);
       if (pErr && !prods) {
         setFetchError("Unable to load product catalog. Please try again later.");
       }
@@ -77,6 +91,14 @@ const Shop = () => {
       setCategories(cats || []);
       setConcerns(cons || []);
       setPromotions(activePromos || []);
+
+      const now = new Date();
+      const activeBanner = (bannerData || []).find((b: any) => {
+        if (b.starts_at && new Date(b.starts_at) > now) return false;
+        if (b.ends_at && new Date(b.ends_at) < now) return false;
+        return true;
+      });
+      setPromoBanner(activeBanner || null);
     } catch (err: any) {
       console.error("Error loading shop data:", err);
       setFetchError("Unable to load product catalog. Please try again later.");
@@ -148,6 +170,32 @@ const Shop = () => {
         </div>
 
         <div className="container py-8">
+          {promoBanner && (
+            <div className="mb-8 rounded-2xl overflow-hidden border border-border bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/5 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+              <div className="space-y-2 text-center md:text-left max-w-2xl">
+                <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-secondary text-secondary-foreground">
+                  Featured Promotion
+                </span>
+                <h2 className="text-xl md:text-2xl font-heading font-bold text-foreground">
+                  {promoBanner.title}
+                </h2>
+                {promoBanner.subtitle && (
+                  <p className="text-sm md:text-base text-muted-foreground">
+                    {promoBanner.subtitle}
+                  </p>
+                )}
+              </div>
+              {promoBanner.cta_link && promoBanner.cta_text && (
+                <Link
+                  to={promoBanner.cta_link}
+                  className="shrink-0 px-6 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors shadow-sm"
+                >
+                  {promoBanner.cta_text}
+                </Link>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-6">
             <button onClick={() => setShowFilters(!showFilters)} className="md:hidden flex items-center gap-2 text-sm font-medium text-foreground border border-border rounded-lg px-4 py-2">
               <Filter size={16} /> Filters

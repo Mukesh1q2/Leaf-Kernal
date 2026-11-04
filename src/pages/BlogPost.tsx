@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { ChevronRight, Calendar } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -10,18 +11,77 @@ import { generateArticleSchema } from "@/lib/seo";
 
 const BlogPost = () => {
   const { slug } = useParams();
+  const { user } = useAuth();
   const [post, setPost] = useState<any>(null);
+  const [isStaff, setIsStaff] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("blog_posts").select("*").eq("slug", slug).single().then(({ data }) => {
-      setPost(data);
-      setLoading(false);
-    });
-  }, [slug]);
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase.from("blog_posts").select("*").eq("slug", slug).maybeSingle();
 
-  if (loading) return <div className="min-h-screen bg-background"><Header /><div className="container py-16"><div className="h-96 bg-muted rounded-xl animate-pulse" /></div><Footer /></div>;
-  if (!post) return <div className="min-h-screen bg-background"><Header /><div className="container py-16 text-center"><h1 className="text-2xl font-heading font-bold">Post not found</h1><Link to="/blog" className="text-secondary hover:underline mt-4 inline-block">Back to Blog</Link></div><Footer /></div>;
+      if (!data) {
+        setPost(null);
+        setLoading(false);
+        return;
+      }
+
+      // If published, anyone can view
+      if (data.is_published) {
+        setPost(data);
+        setLoading(false);
+        return;
+      }
+
+      // If draft, strictly verify CMS staff role
+      if (user) {
+        const [{ data: isAdmin }, { data: isEditor }] = await Promise.all([
+          supabase.rpc("has_role", { _user_id: user.id, _role: "admin" }),
+          supabase.rpc("has_role", { _user_id: user.id, _role: "editor" }),
+        ]);
+
+        if (isAdmin || isEditor) {
+          setPost(data);
+          setIsStaff(true);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Draft post not visible to unauthenticated or non-staff visitors
+      setPost(null);
+      setLoading(false);
+    })();
+  }, [slug, user]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container py-16">
+          <div className="h-96 bg-muted rounded-xl animate-pulse" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!post) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container py-16 text-center">
+          <h1 className="text-2xl font-heading font-bold">Post not found</h1>
+          <p className="text-muted-foreground mt-2">The article you are looking for does not exist or is not currently published.</p>
+          <Link to="/blog" className="text-secondary hover:underline mt-4 inline-block">
+            Back to Blog
+          </Link>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -32,7 +92,7 @@ const BlogPost = () => {
         type="article"
         jsonLd={generateArticleSchema(post)}
       />
-      <DraftPreviewBanner />
+      {(!post.is_published && isStaff) && <DraftPreviewBanner />}
       <Header />
       <main className="container py-8">
         <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">

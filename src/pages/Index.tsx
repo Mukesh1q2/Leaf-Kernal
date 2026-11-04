@@ -3,6 +3,7 @@ import HeroSection from "@/components/HeroSection";
 import HealthConcerns from "@/components/HealthConcerns";
 import BestSellers from "@/components/BestSellers";
 import StatsSection from "@/components/StatsSection";
+import BrandCommitments from "@/components/BrandCommitments";
 import Testimonials from "@/components/Testimonials";
 import Newsletter from "@/components/Newsletter";
 import Footer from "@/components/Footer";
@@ -28,6 +29,7 @@ const Index = () => {
         <RecommendedForYou />
         <TrendingProducts />
         <StatsSection />
+        <BrandCommitments />
         <Testimonials />
         <Newsletter />
       </main>

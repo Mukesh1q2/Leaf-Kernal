@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 const emptyForm = { name: "", slug: "", description: "", sort_order: "0", parent_id: "", image_url: "" };
 
@@ -17,46 +18,156 @@ const AdminCategories = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    categoryId: string | null;
+    categoryName: string;
+    productCount: number;
+    subcatCount: number;
+  }>({
+    open: false,
+    categoryId: null,
+    categoryName: "",
+    productCount: 0,
+    subcatCount: 0,
+  });
   const { toast } = useToast();
 
   const fetch = async () => {
-    const { data } = await supabase.from("categories").select("*").order("sort_order");
-    setItems(data || []);
+    const { data, error } = await supabase.from("categories").select("*").order("sort_order");
+    if (error) {
+      toast({ title: "Failed to load categories", description: error.message, variant: "destructive" });
+    } else {
+      setItems(data || []);
+    }
   };
+
   useEffect(() => { fetch(); }, []);
 
   const openNew = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (c: any) => {
     setEditId(c.id);
-    setForm({ name: c.name, slug: c.slug, description: c.description || "", sort_order: String(c.sort_order || 0), parent_id: c.parent_id || "", image_url: c.image_url || "" });
+    setForm({
+      name: c.name,
+      slug: c.slug,
+      description: c.description || "",
+      sort_order: String(c.sort_order || 0),
+      parent_id: c.parent_id || "",
+      image_url: c.image_url || "",
+    });
     setDialogOpen(true);
   };
 
   const save = async () => {
-    const payload: any = {
-      name: form.name,
-      slug: form.slug || form.name.toLowerCase().replace(/\s+/g, "-"),
-      description: form.description || null,
-      sort_order: parseInt(form.sort_order) || 0,
-      parent_id: form.parent_id || null,
-      image_url: form.image_url || null,
-    };
-    if (editId) {
-      await supabase.from("categories").update(payload).eq("id", editId);
-      toast({ title: "Category updated" });
-    } else {
-      await supabase.from("categories").insert(payload);
-      toast({ title: "Category created" });
+    if (!form.name.trim()) {
+      toast({ title: "Name required", description: "Please enter a category name.", variant: "destructive" });
+      return;
     }
+    const slug = (form.slug.trim() || form.name.trim()).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (!slug) {
+      toast({ title: "Invalid slug", description: "Slug must contain valid alphanumeric characters.", variant: "destructive" });
+      return;
+    }
+    const sortOrder = parseInt(form.sort_order, 10);
+
+    setSaving(true);
+    const payload: any = {
+      name: form.name.trim(),
+      slug,
+      description: form.description?.trim() || null,
+      sort_order: isNaN(sortOrder) ? 0 : sortOrder,
+      parent_id: form.parent_id || null,
+      image_url: form.image_url?.trim() || null,
+    };
+
+    if (editId) {
+      const { error } = await supabase.from("categories").update(payload).eq("id", editId);
+      if (error) {
+        setSaving(false);
+        toast({ title: "Failed to update category", description: error.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Category updated successfully" });
+    } else {
+      const { error } = await supabase.from("categories").insert(payload);
+      if (error) {
+        setSaving(false);
+        toast({ title: "Failed to create category", description: error.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Category created successfully" });
+    }
+
+    setSaving(false);
     setDialogOpen(false);
     fetch();
   };
 
-  const del = async (id: string) => {
-    if (!confirm("Delete this category?")) return;
-    await supabase.from("categories").delete().eq("id", id);
-    toast({ title: "Category deleted" });
-    fetch();
+  const promptDelete = async (c: any) => {
+    const [{ count: productCount }, { count: subcatCount }] = await Promise.all([
+      supabase.from("products").select("*", { count: "exact", head: true }).eq("category_id", c.id),
+      supabase.from("categories").select("*", { count: "exact", head: true }).eq("parent_id", c.id),
+    ]);
+
+    setDeleteDialog({
+      open: true,
+      categoryId: c.id,
+      categoryName: c.name,
+      productCount: productCount || 0,
+      subcatCount: subcatCount || 0,
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteDialog.categoryId) return;
+
+    if (deleteDialog.subcatCount > 0) {
+      toast({
+        title: "Cannot Delete Parent Category",
+        description: `This category has ${deleteDialog.subcatCount} subcategory(ies). Please reassign or delete child categories first.`,
+        variant: "destructive",
+      });
+      setDeleteDialog((prev) => ({ ...prev, open: false }));
+      return;
+    }
+
+    setIsDeleting(true);
+
+    // If products reference this category, safely unassign them first to maintain referential integrity
+    if (deleteDialog.productCount > 0) {
+      const { error: unassignError } = await supabase
+        .from("products")
+        .update({ category_id: null })
+        .eq("category_id", deleteDialog.categoryId);
+
+      if (unassignError) {
+        setIsDeleting(false);
+        toast({
+          title: "Failed to unassign products",
+          description: unassignError.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    const { error } = await supabase.from("categories").delete().eq("id", deleteDialog.categoryId);
+    setIsDeleting(false);
+    setDeleteDialog((prev) => ({ ...prev, open: false }));
+
+    if (error) {
+      toast({ title: "Failed to delete category", description: error.message, variant: "destructive" });
+    } else {
+      toast({
+        title: "Category deleted",
+        description: deleteDialog.productCount > 0
+          ? `Category removed. ${deleteDialog.productCount} product(s) unassigned to Uncategorized.`
+          : "Category deleted successfully.",
+      });
+      fetch();
+    }
   };
 
   return (
@@ -82,7 +193,7 @@ const AdminCategories = () => {
                   <TableCell>{c.sort_order}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => del(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => promptDelete(c)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </TableCell>
                 </TableRow>
                 );
@@ -110,10 +221,38 @@ const AdminCategories = () => {
             <div><Label>Image URL</Label><Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." /></div>
             <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} /></div>
             <div><Label>Sort Order</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} /></div>
-            <Button onClick={save} className="w-full">{editId ? "Update" : "Create"}</Button>
+            <Button onClick={save} disabled={saving} className="w-full">
+              {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editId ? "Update Category" : "Create Category"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog((prev) => ({ ...prev, open }))}
+        title={
+          deleteDialog.subcatCount > 0
+            ? `Cannot Delete Category "${deleteDialog.categoryName}"`
+            : `Delete Category "${deleteDialog.categoryName}"`
+        }
+        description={
+          deleteDialog.subcatCount > 0
+            ? `This category cannot be deleted because it currently has ${deleteDialog.subcatCount} active subcategory(ies) assigned to it. Please reassign or delete the subcategories first before removing this parent category.`
+            : deleteDialog.productCount > 0
+            ? `Warning: This category currently has ${deleteDialog.productCount} assigned product(s).\n\nDeleting this category will safely unassign it from these ${deleteDialog.productCount} product(s) (marking them as Uncategorized). Historical orders will remain intact.\n\nAre you sure you want to proceed?`
+            : `Are you sure you want to delete "${deleteDialog.categoryName}"? This action cannot be undone.`
+        }
+        confirmText={
+          deleteDialog.subcatCount > 0
+            ? "Blocked (Subcategories Exist)"
+            : deleteDialog.productCount > 0
+            ? "Unassign Products & Delete"
+            : "Delete Category"
+        }
+        loading={isDeleting}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 };

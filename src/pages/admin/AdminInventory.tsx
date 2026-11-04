@@ -48,6 +48,8 @@ const REASON_LABELS: Record<string, string> = {
 const AdminInventory = () => {
   const [products, setProducts] = useState<ProductStock[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "in_stock" | "low_stock" | "out_of_stock">("all");
 
   // Adjustment Dialog State
   const [adjustingProduct, setAdjustingProduct] = useState<ProductStock | null>(null);
@@ -130,7 +132,8 @@ const AdminInventory = () => {
 
     try {
       // Execute the atomic adjust_product_stock RPC which updates products and logs to stock_movements ledger
-      const { data, error } = await supabase.rpc("adjust_product_stock" as any, {
+      let rpcSuccess = false;
+      const { error: rpcError } = await supabase.rpc("adjust_product_stock" as any, {
         p_product_id: adjustingProduct.id,
         p_new_quantity: targetQty,
         p_delta: delta,
@@ -138,16 +141,32 @@ const AdminInventory = () => {
         p_notes: adjustmentNotes.trim() ? adjustmentNotes.trim() : undefined,
       });
 
-      if (error) {
-        throw error;
+      if (!rpcError) {
+        rpcSuccess = true;
+      } else {
+        const errMsg = rpcError.message.toLowerCase();
+        // If RPC function is not found on remote server, fall back to direct update (which invokes trigger)
+        if (errMsg.includes("could not find the function") || errMsg.includes("does not exist")) {
+          const { error: fallbackError } = await supabase
+            .from("products")
+            .update({ stock_quantity: targetQty })
+            .eq("id", adjustingProduct.id);
+
+          if (fallbackError) throw fallbackError;
+          rpcSuccess = true;
+        } else {
+          throw rpcError;
+        }
       }
 
-      toast({
-        title: "Stock adjusted successfully",
-        description: `${adjustingProduct.name} stock updated from ${currentQty} to ${targetQty} (${delta > 0 ? `+${delta}` : delta}).`,
-      });
-      setAdjustingProduct(null);
-      await fetchData();
+      if (rpcSuccess) {
+        toast({
+          title: "Stock adjusted successfully",
+          description: `${adjustingProduct.name} stock updated from ${currentQty} to ${targetQty} (${delta > 0 ? `+${delta}` : delta}).`,
+        });
+        setAdjustingProduct(null);
+        await fetchData();
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "An unexpected error occurred while adjusting stock.";
       toast({
@@ -163,6 +182,20 @@ const AdminInventory = () => {
   const outOfStock = products.filter((p) => (p.stock_quantity || 0) === 0);
   const lowStock = products.filter((p) => (p.stock_quantity || 0) > 0 && (p.stock_quantity || 0) < 10);
   const totalValue = products.reduce((s, p) => s + (p.stock_quantity || 0) * p.price, 0);
+
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch =
+      !searchQuery.trim() ||
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.slug.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+
+    const qty = p.stock_quantity || 0;
+    if (statusFilter === "in_stock") return qty >= 10;
+    if (statusFilter === "low_stock") return qty > 0 && qty < 10;
+    if (statusFilter === "out_of_stock") return qty === 0;
+    return true;
+  });
 
   const getStatus = (qty: number | null) => {
     const q = qty || 0;
@@ -226,6 +259,29 @@ const AdminInventory = () => {
         </Card>
       </div>
 
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className="relative flex-1 w-full">
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search products by name or slug..."
+            className="w-full"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={(val: any) => setStatusFilter(val)}>
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue placeholder="All Stock Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses ({products.length})</SelectItem>
+            <SelectItem value="in_stock">In Stock ({products.length - lowStock.length - outOfStock.length})</SelectItem>
+            <SelectItem value="low_stock">Low Stock ({lowStock.length})</SelectItem>
+            <SelectItem value="out_of_stock">Out of Stock ({outOfStock.length})</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Inventory Table */}
       <Card>
         <CardContent className="p-0">
@@ -248,14 +304,16 @@ const AdminInventory = () => {
                     Loading inventory...
                   </TableCell>
                 </TableRow>
-              ) : products.length === 0 ? (
+              ) : filteredProducts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    No products found.
+                    {searchQuery || statusFilter !== "all"
+                      ? "No products matching your search criteria."
+                      : "No products found."}
                   </TableCell>
                 </TableRow>
               ) : (
-                products.map((p) => {
+                filteredProducts.map((p) => {
                   const status = getStatus(p.stock_quantity);
                   return (
                     <TableRow key={p.id}>

@@ -14,9 +14,10 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, ImagePlus, Search, Download, History } from "lucide-react";
+import { Plus, Pencil, Trash2, ImagePlus, Search, Download, History, Loader2 } from "lucide-react";
 import { saveRevision } from "@/lib/revisions";
 import { RevisionHistoryDialog } from "@/components/admin/RevisionHistoryDialog";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 
 interface Product {
   id: string;
@@ -49,6 +50,7 @@ const AdminProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -57,6 +59,23 @@ const AdminProducts = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    productId: string | null;
+    productName: string;
+    canDelete: boolean;
+    orderCount: number;
+    bundleCount: number;
+  }>({
+    open: false,
+    productId: null,
+    productName: "",
+    canDelete: true,
+    orderCount: 0,
+    bundleCount: 0,
+  });
   const { toast } = useToast();
 
   const toggleSelectAll = (filteredProds: Product[]) => {
@@ -77,27 +96,65 @@ const AdminProducts = () => {
   const handleBulkStatus = async (isActive: boolean) => {
     if (selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
-    await supabase.from("products").update({ is_active: isActive }).in("id", ids);
-    toast({ title: `Updated ${ids.length} products` });
+    const { error } = await supabase.from("products").update({ is_active: isActive }).in("id", ids);
+    if (error) {
+      toast({ title: "Failed to update status", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `Updated status for ${ids.length} products` });
     setSelectedIds(new Set());
     fetchProducts();
   };
 
-  const handleBulkDelete = async () => {
+  const executeBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Delete ${selectedIds.size} selected products?`)) return;
+    setIsDeleting(true);
     const ids = Array.from(selectedIds);
-    await supabase.from("products").delete().in("id", ids);
-    toast({ title: `Deleted ${ids.length} products` });
+
+    // Check which products have orders to avoid breaking historical records
+    const { data: orderedItems } = await supabase
+      .from("order_items")
+      .select("product_id")
+      .in("product_id", ids);
+
+    const orderedSet = new Set((orderedItems || []).map((oi: any) => oi.product_id));
+    const safeToDelete = ids.filter((id) => !orderedSet.has(id));
+    const mustDeactivate = ids.filter((id) => orderedSet.has(id));
+
+    let deleteError: any = null;
+    if (safeToDelete.length > 0) {
+      const { error } = await supabase.from("products").delete().in("id", safeToDelete);
+      if (error) deleteError = error;
+    }
+
+    if (mustDeactivate.length > 0) {
+      await supabase.from("products").update({ is_active: false }).in("id", mustDeactivate);
+    }
+
+    setIsDeleting(false);
+    setBulkDeleteOpen(false);
     setSelectedIds(new Set());
+
+    if (deleteError) {
+      toast({ title: "Bulk delete partially failed", description: deleteError.message, variant: "destructive" });
+    } else {
+      toast({
+        title: "Bulk operation complete",
+        description: `Deleted ${safeToDelete.length} unreferenced product(s)${
+          mustDeactivate.length > 0 ? ` and deactivated ${mustDeactivate.length} product(s) with order history` : ""
+        }.`,
+      });
+    }
     fetchProducts();
   };
 
   const fetchProducts = async () => {
-    const [{ data: prods }, { data: cats }] = await Promise.all([
+    const [{ data: prods, error: pErr }, { data: cats, error: cErr }] = await Promise.all([
       supabase.from("products").select("*").order("created_at", { ascending: false }),
       supabase.from("categories").select("*").order("sort_order"),
     ]);
+    if (pErr) toast({ title: "Failed to load products", description: pErr.message, variant: "destructive" });
+    if (cErr) toast({ title: "Failed to load categories", description: cErr.message, variant: "destructive" });
     setProducts(prods || []);
     setCategories(cats || []);
     setLoading(false);
@@ -113,7 +170,7 @@ const AdminProducts = () => {
       name: p.name, slug: p.slug, price: String(p.price),
       original_price: p.original_price ? String(p.original_price) : "",
       short_description: p.short_description || "", description: p.description || "",
-      stock_quantity: String(p.stock_quantity ?? 100),
+      stock_quantity: String(p.stock_quantity ?? 0),
       is_active: p.is_active ?? true, is_featured: p.is_featured ?? false,
       badge: p.badge || "",
       ingredients: p.ingredients || "", how_to_use: p.how_to_use || "",
@@ -125,42 +182,126 @@ const AdminProducts = () => {
   };
 
   const save = async () => {
+    if (!form.name.trim()) {
+      toast({ title: "Name required", description: "Please enter a product name.", variant: "destructive" });
+      return;
+    }
+    const priceNum = parseFloat(form.price);
+    if (isNaN(priceNum) || priceNum < 0) {
+      toast({ title: "Invalid price", description: "Product price must be a valid non-negative number.", variant: "destructive" });
+      return;
+    }
+    const origPriceNum = form.original_price ? parseFloat(form.original_price) : null;
+    if (origPriceNum !== null && (isNaN(origPriceNum) || origPriceNum < priceNum)) {
+      toast({ title: "Invalid original price", description: "Original price (M.R.P.) cannot be lower than selling price.", variant: "destructive" });
+      return;
+    }
+    const rawStock = parseInt(form.stock_quantity, 10);
+    const stockQty = isNaN(rawStock) ? 0 : Math.max(0, rawStock);
+
+    const slug = (form.slug.trim() || form.name.trim()).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (!slug) {
+      toast({ title: "Invalid slug", description: "Slug must contain valid alphanumeric characters.", variant: "destructive" });
+      return;
+    }
+
+    setSaving(true);
     const payload: any = {
-      name: form.name,
-      slug: form.slug || form.name.toLowerCase().replace(/\s+/g, "-"),
-      price: parseFloat(form.price),
-      original_price: form.original_price ? parseFloat(form.original_price) : null,
-      short_description: form.short_description || null,
-      description: form.description || null,
-      stock_quantity: parseInt(form.stock_quantity) || 100,
+      name: form.name.trim(),
+      slug,
+      price: priceNum,
+      original_price: origPriceNum,
+      short_description: form.short_description?.trim() || null,
+      description: form.description?.trim() || null,
+      stock_quantity: stockQty,
       is_active: form.is_active,
       is_featured: form.is_featured,
-      badge: form.badge || null,
-      ingredients: form.ingredients || null,
-      how_to_use: form.how_to_use || null,
-      benefits: form.benefits || null,
+      badge: form.badge?.trim() || null,
+      ingredients: form.ingredients?.trim() || null,
+      how_to_use: form.how_to_use?.trim() || null,
+      benefits: form.benefits?.trim() || null,
       category_id: form.category_id || null,
-      image_url: form.image_url || null,
+      image_url: form.image_url?.trim() || null,
       gallery_urls: form.gallery_urls || [],
     };
+
     if (editId) {
-      await supabase.from("products").update(payload).eq("id", editId);
+      const { error } = await supabase.from("products").update(payload).eq("id", editId);
+      if (error) {
+        setSaving(false);
+        toast({ title: "Failed to update product", description: error.message, variant: "destructive" });
+        return;
+      }
       saveRevision("product", editId, payload.name, payload);
-      toast({ title: "Product updated" });
+      toast({ title: "Product updated successfully" });
     } else {
-      const { data } = await supabase.from("products").insert(payload).select().single();
+      const { data, error } = await supabase.from("products").insert(payload).select().single();
+      if (error) {
+        setSaving(false);
+        toast({ title: "Failed to create product", description: error.message, variant: "destructive" });
+        return;
+      }
       if (data) saveRevision("product", data.id, payload.name, payload);
-      toast({ title: "Product created" });
+      toast({ title: "Product created successfully" });
     }
+
+    setSaving(false);
     setDialogOpen(false);
     fetchProducts();
   };
 
-  const deleteProduct = async (id: string) => {
-    if (!confirm("Delete this product?")) return;
-    await supabase.from("products").delete().eq("id", id);
-    toast({ title: "Product deleted" });
-    fetchProducts();
+  const promptDeleteProduct = async (product: Product) => {
+    // Check order items and bundle references
+    const [{ count: orderCount }, { count: bundleCount }] = await Promise.all([
+      supabase.from("order_items").select("*", { count: "exact", head: true }).eq("product_id", product.id),
+      supabase.from("bundle_items").select("*", { count: "exact", head: true }).eq("product_id", product.id),
+    ]);
+
+    const orders = orderCount || 0;
+    const bundles = bundleCount || 0;
+    const canDelete = orders === 0 && bundles === 0;
+
+    setDeleteDialog({
+      open: true,
+      productId: product.id,
+      productName: product.name,
+      canDelete,
+      orderCount: orders,
+      bundleCount: bundles,
+    });
+  };
+
+  const confirmDeleteProduct = async () => {
+    if (!deleteDialog.productId) return;
+    setIsDeleting(true);
+
+    if (!deleteDialog.canDelete) {
+      // Deactivate instead
+      const { error } = await supabase
+        .from("products")
+        .update({ is_active: false })
+        .eq("id", deleteDialog.productId);
+      setIsDeleting(false);
+      setDeleteDialog((prev) => ({ ...prev, open: false }));
+      if (error) {
+        toast({ title: "Failed to deactivate", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Product deactivated", description: "Preserved historical records while hiding from storefront." });
+        fetchProducts();
+      }
+      return;
+    }
+
+    const { error } = await supabase.from("products").delete().eq("id", deleteDialog.productId);
+    setIsDeleting(false);
+    setDeleteDialog((prev) => ({ ...prev, open: false }));
+
+    if (error) {
+      toast({ title: "Failed to delete product", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Product deleted" });
+      fetchProducts();
+    }
   };
 
   const generateImage = async (product: Product) => {
@@ -236,7 +377,7 @@ const AdminProducts = () => {
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => handleBulkStatus(true)}>Bulk Publish</Button>
             <Button size="sm" variant="outline" onClick={() => handleBulkStatus(false)}>Bulk Draft</Button>
-            <Button size="sm" variant="destructive" onClick={handleBulkDelete}>Bulk Delete</Button>
+            <Button size="sm" variant="destructive" onClick={() => setBulkDeleteOpen(true)}>Bulk Delete</Button>
             <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
           </div>
         </div>
@@ -308,7 +449,7 @@ const AdminProducts = () => {
                           <ImagePlus className={`h-4 w-4 ${genLoading === p.id ? "animate-pulse" : ""}`} />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteProduct(p.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => promptDeleteProduct(p)} title="Delete or Deactivate"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -417,7 +558,18 @@ const AdminProducts = () => {
             </TabsContent>
           </Tabs>
 
-          <Button onClick={save} className="w-full mt-4">{editId ? "Update" : "Create"} Product</Button>
+          <Button onClick={save} disabled={saving} className="w-full mt-4">
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : editId ? (
+              "Update Product"
+            ) : (
+              "Create Product"
+            )}
+          </Button>
         </DialogContent>
       </Dialog>
 
@@ -434,7 +586,7 @@ const AdminProducts = () => {
             original_price: payload.original_price ? String(payload.original_price) : "",
             short_description: payload.short_description || "",
             description: payload.description || "",
-            stock_quantity: String(payload.stock_quantity ?? 100),
+            stock_quantity: String(payload.stock_quantity ?? 0),
             is_active: payload.is_active ?? true,
             is_featured: payload.is_featured ?? false,
             badge: payload.badge || "",
@@ -449,6 +601,35 @@ const AdminProducts = () => {
           });
           toast({ title: "Restored product draft from revision" });
         }}
+      />
+
+      {/* Delete / Deactivate Product Confirmation */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog((prev) => ({ ...prev, open }))}
+        title={deleteDialog.canDelete ? "Delete Product" : "Product Referenced in Order History"}
+        description={
+          deleteDialog.canDelete
+            ? `Are you sure you want to permanently delete "${deleteDialog.productName}"? This action cannot be undone.`
+            : `"${deleteDialog.productName}" is referenced in ${deleteDialog.orderCount} customer order(s)${
+                deleteDialog.bundleCount > 0 ? ` and ${deleteDialog.bundleCount} bundle(s)` : ""
+              }.\n\nPermanently deleting this product is blocked to preserve customer receipts and fulfillment history. Deactivating it will safely hide it from the storefront while keeping past records intact.`
+        }
+        confirmText={deleteDialog.canDelete ? "Delete Permanently" : "Deactivate Product"}
+        variant={deleteDialog.canDelete ? "destructive" : "default"}
+        loading={isDeleting}
+        onConfirm={confirmDeleteProduct}
+      />
+
+      {/* Bulk Delete Confirmation */}
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        title={`Delete ${selectedIds.size} Selected Products`}
+        description={`Are you sure you want to delete ${selectedIds.size} selected products?\n\nAny products that have past customer orders will automatically be deactivated rather than deleted to safeguard customer order history.`}
+        confirmText="Proceed"
+        loading={isDeleting}
+        onConfirm={executeBulkDelete}
       />
     </div>
   );

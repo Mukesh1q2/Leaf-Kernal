@@ -3,10 +3,12 @@ import { motion } from "framer-motion";
 import { Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Newsletter = () => {
+  const { settings } = useStoreSettings();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -46,7 +48,7 @@ const Newsletter = () => {
         throw insertError;
       }
 
-      toast.success("You're subscribed! Welcome to the Leaf & Kernel family 🌿");
+      toast.success(`You're subscribed! Welcome to the ${settings.store_name} family 🌿`);
       setEmail("");
     } catch (err: any) {
       toast.error(err?.message || "Subscription failed. Please try again.");
@@ -66,7 +68,7 @@ const Newsletter = () => {
         >
           <span className="text-secondary text-sm font-semibold uppercase tracking-widest">Stay Connected</span>
           <h2 className="text-3xl md:text-4xl font-heading font-bold text-foreground mt-2 mb-4">
-            Join the Leaf & Kernel Family
+            Join the {settings.store_name} Family
           </h2>
           <p className="text-muted-foreground mb-8">
             Get wellness tips, Ayurvedic recipes, early access to new products, and exclusive offers delivered to your inbox.
