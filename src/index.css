@@ -63,10 +63,23 @@
 
   body {
     @apply bg-background text-foreground font-body antialiased;
+    min-width: 320px;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
+  }
+}
+
+html {
+  scroll-padding-top: 6rem;
+}
+
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
   }
 }
 

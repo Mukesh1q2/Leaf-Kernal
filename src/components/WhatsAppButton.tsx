@@ -22,8 +22,8 @@ const WhatsAppButton = () => {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`fixed right-6 z-50 flex items-center gap-2 bg-[#25D366] text-white pl-4 pr-5 py-3 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 group ${
-        chatOpen ? "bottom-[78vh] sm:bottom-6" : "bottom-6"
+      className={`fixed right-3 z-50 flex items-center gap-2 rounded-full bg-[#25D366] px-3.5 py-3 text-white shadow-lg transition-all duration-300 group hover:scale-105 hover:shadow-xl md:right-6 ${
+        chatOpen ? "bottom-[78vh] lg:bottom-6" : "bottom-[calc(4.5rem+env(safe-area-inset-bottom))] lg:bottom-6"
       }`}
       aria-label="Chat on WhatsApp"
     >

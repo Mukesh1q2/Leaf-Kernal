@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Search, ShoppingBag, User, Menu, X, ChevronDown, Shield, Sparkles, Heart } from "lucide-react";
+import { Search, ShoppingBag, User, ChevronDown, Shield, Sparkles, Heart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
@@ -12,7 +12,6 @@ import uvediqLogo from "@/assets/uvediq-logo.png";
 import StorefrontPromoStrip from "@/components/StorefrontPromoStrip";
 
 const Header = () => {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -75,20 +74,16 @@ const Header = () => {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
         <StorefrontPromoStrip />
 
-        <div className="container flex items-center justify-between h-20 md:h-24 py-2">
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 text-foreground" aria-label="Toggle menu">
-            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-
-          <Link to="/" className="flex items-center gap-3 shrink-0 py-1" aria-label="UVEDIQ Home">
+        <div className="container flex h-16 items-center justify-between gap-2 py-1.5 md:h-24 md:py-2">
+          <Link to="/" className="flex shrink-0 items-center gap-3 py-1" aria-label="UVEDIQ Home">
             <img
               src={uvediqLogo}
               alt="UVEDIQ"
-              className="h-14 sm:h-16 md:h-20 w-auto object-contain transition-transform duration-200 hover:scale-105 drop-shadow-sm"
+              className="h-11 w-auto object-contain drop-shadow-sm md:h-20"
             />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => (
               <div key={link.label} className="relative group" onMouseEnter={() => link.children && setOpenDropdown(link.label)} onMouseLeave={() => setOpenDropdown(null)}>
                 <Link to={link.href} className="px-3 py-2 text-sm font-medium text-foreground hover:text-secondary transition-colors flex items-center gap-1">
@@ -108,11 +103,11 @@ const Header = () => {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2">
-            <button onClick={() => setSearchOpen(true)} className="p-2 text-foreground hover:text-secondary transition-colors" aria-label="Search (⌘K)">
+          <div className="flex shrink-0 items-center gap-0.5 md:gap-2">
+            <button onClick={() => setSearchOpen(true)} className="rounded-full p-2.5 text-foreground transition-colors hover:bg-muted hover:text-secondary" aria-label="Search products">
               <Search size={20} />
             </button>
-            <NotificationBell />
+            <div className="hidden lg:block"><NotificationBell /></div>
             {user && loyaltyBalance > 0 && (
               <Link to="/loyalty" className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-secondary/10 hover:bg-secondary/20 transition-colors text-xs font-semibold text-secondary" title="Loyalty points">
                 <Sparkles size={12} />
@@ -120,18 +115,18 @@ const Header = () => {
               </Link>
             )}
             {isAdmin && (
-              <Link to="/admin" className="p-2 text-secondary hover:text-primary transition-colors" aria-label="Admin" title="Admin Dashboard">
+              <Link to="/admin" className="hidden p-2 text-secondary transition-colors hover:text-primary lg:block" aria-label="Admin" title="Admin Dashboard">
                 <Shield size={20} />
               </Link>
             )}
-            <Link to="/wishlist" className="relative p-2 text-foreground hover:text-secondary transition-colors" aria-label="Wishlist">
+            <Link to="/wishlist" className="relative hidden p-2 text-foreground transition-colors hover:text-secondary lg:block" aria-label="Wishlist">
               <Heart size={20} />
               {wishlistCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 bg-secondary text-secondary-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{wishlistCount}</span>
               )}
             </Link>
-            <Link to={user ? "/account" : "/auth"} className="p-2 text-foreground hover:text-secondary transition-colors" aria-label="Account"><User size={20} /></Link>
-            <Link to="/cart" className="relative p-2 text-foreground hover:text-secondary transition-colors" aria-label="Cart">
+            <Link to={user ? "/account" : "/auth"} className="hidden p-2 text-foreground transition-colors hover:text-secondary lg:block" aria-label="Account"><User size={20} /></Link>
+            <Link to="/cart" className="relative rounded-full p-2.5 text-foreground transition-colors hover:bg-muted hover:text-secondary" aria-label={`Cart${itemCount ? `, ${itemCount} items` : ""}`}>
               <ShoppingBag size={20} />
               {itemCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 bg-secondary text-secondary-foreground text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{itemCount}</span>
@@ -140,25 +135,6 @@ const Header = () => {
           </div>
         </div>
 
-        {mobileOpen && (
-          <nav className="md:hidden bg-background border-t border-border px-4 py-4 space-y-2">
-            {navLinks.map((link) => (
-              <div key={link.label}>
-                <Link to={link.href} onClick={() => setMobileOpen(false)} className="block py-2 text-foreground font-medium">{link.label}</Link>
-                {link.children && (
-                  <div className="pl-4 space-y-1">
-                    {link.children.map((child) => (
-                      <Link key={child.label} to={child.href} onClick={() => setMobileOpen(false)} className="block py-1.5 text-sm text-muted-foreground">{child.label}</Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-            {isAdmin && (
-              <Link to="/admin" onClick={() => setMobileOpen(false)} className="block py-2 text-secondary font-medium">Admin Dashboard</Link>
-            )}
-          </nav>
-        )}
       </header>
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </>

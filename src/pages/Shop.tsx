@@ -164,14 +164,14 @@ const Shop = () => {
       />
       <Header />
       <main>
-        <div className="bg-primary py-12 text-center">
-          <h1 className="text-3xl md:text-4xl font-heading font-bold text-primary-foreground">Shop Superfoods</h1>
-          <p className="text-primary-foreground/70 mt-2">Discover plant-powered nutrition for every wellness goal</p>
+        <div className="bg-primary px-4 py-8 text-center md:py-12">
+          <h1 className="text-2xl font-heading font-bold text-primary-foreground md:text-4xl">Shop Superfoods</h1>
+          <p className="mt-2 text-sm text-primary-foreground/70 md:text-base">Discover plant-powered nutrition for every wellness goal</p>
         </div>
 
-        <div className="container py-8">
+        <div className="container py-5 md:py-8">
           {promoBanner && (
-            <div className="mb-8 rounded-2xl overflow-hidden border border-border bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/5 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+              <div className="mb-6 flex flex-col items-center justify-between gap-4 overflow-hidden rounded-2xl border border-border bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/5 p-4 shadow-sm md:mb-8 md:flex-row md:gap-6 md:p-8">
               <div className="space-y-2 text-center md:text-left max-w-2xl">
                 <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-secondary text-secondary-foreground">
                   Featured Promotion
@@ -197,11 +197,11 @@ const Shop = () => {
           )}
 
           <div className="flex items-center justify-between mb-6">
-            <button onClick={() => setShowFilters(!showFilters)} className="md:hidden flex items-center gap-2 text-sm font-medium text-foreground border border-border rounded-lg px-4 py-2">
+            <button onClick={() => setShowFilters(true)} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground md:hidden">
               <Filter size={16} /> Filters
             </button>
-            <p className="text-sm text-muted-foreground hidden md:block">{filtered.length} products</p>
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="text-sm border border-border rounded-lg px-3 py-2 bg-background text-foreground">
+            <p className="hidden text-sm text-muted-foreground md:block">{filtered.length} products</p>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 py-2 text-sm text-foreground md:flex-none md:px-3">
               <option value="featured">Featured</option>
               <option value="price-low">Price: Low to High</option>
               <option value="price-high">Price: High to Low</option>
@@ -211,12 +211,13 @@ const Shop = () => {
             </select>
           </div>
 
-          <div className="flex gap-8">
-            <aside className={`${showFilters ? "block" : "hidden"} md:block w-full md:w-60 shrink-0`}>
-              <div className="sticky top-24 space-y-6">
+          <div className="flex flex-col gap-6 md:flex-row md:gap-8">
+            {showFilters && <button type="button" aria-label="Close filters" onClick={() => setShowFilters(false)} className="fixed inset-0 z-50 bg-foreground/40 md:hidden" />}
+            <aside className={`${showFilters ? "block" : "hidden"} fixed inset-x-0 bottom-0 top-28 z-[60] overflow-y-auto rounded-t-2xl border border-border bg-background px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl md:sticky md:inset-auto md:top-24 md:z-auto md:block md:w-60 md:shrink-0 md:overflow-visible md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none`}>
+              <div className="space-y-6 md:sticky md:top-24">
                 <div className="flex items-center justify-between md:hidden">
                   <h3 className="font-heading font-semibold">Filters</h3>
-                  <button onClick={() => setShowFilters(false)}><X size={20} /></button>
+                  <button type="button" onClick={() => setShowFilters(false)} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted" aria-label="Close filters"><X size={20} /></button>
                 </div>
 
                 <div>
@@ -271,18 +272,28 @@ const Shop = () => {
                   <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} className="accent-primary" />
                   In stock only
                 </label>
+
+                <div className="pt-2 md:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="flex min-h-11 w-full items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-forest-light"
+                  >
+                    View {filtered.length} products
+                  </button>
+                </div>
               </div>
             </aside>
 
             <div className="flex-1">
               {loading ? (
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 md:gap-6">
                   {[...Array(6)].map((_, i) => (
                     <div key={i} className="bg-muted rounded-xl h-80 animate-pulse" />
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 md:gap-6">
                   {filtered.map((product, i) => (
                     <motion.div
                       key={product.id}
@@ -311,7 +322,7 @@ const Shop = () => {
                           </button>
                         </div>
                       </Link>
-                      <div className="p-4">
+                      <div className="p-3 md:p-4">
                         <Link to={`/product/${product.slug}`}>
                           <h3 className="font-heading font-semibold text-foreground text-sm md:text-base hover:text-secondary transition-colors">{product.name}</h3>
                         </Link>
@@ -343,7 +354,7 @@ const Shop = () => {
                             <span className="text-lg font-bold text-foreground">₹{product.price}</span>
                             {product.original_price && <span className="text-sm text-muted-foreground line-through">₹{product.original_price}</span>}
                           </div>
-                          <button onClick={() => addToCart(product.id)} className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-forest-light transition-colors" aria-label="Add to cart">
+                          <button onClick={() => addToCart(product.id)} className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-forest-light md:h-9 md:w-9" aria-label="Add to cart">
                             <ShoppingBag size={16} />
                           </button>
                         </div>

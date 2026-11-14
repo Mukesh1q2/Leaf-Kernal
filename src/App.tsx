@@ -10,6 +10,7 @@ import { WishlistProvider } from "@/contexts/WishlistContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import ChatWidget from "@/components/ChatWidget";
 import RouteTracker from "@/components/RouteTracker";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 // Eager import for home landing page
 import Index from "./pages/Index";
@@ -153,6 +154,7 @@ const App = () => (
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
+                <MobileBottomNav />
                 <ChatWidget />
               </BrowserRouter>
             </TooltipProvider>

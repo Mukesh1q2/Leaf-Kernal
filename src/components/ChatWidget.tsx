@@ -108,14 +108,14 @@ const ChatWidget = () => {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 left-6 z-40 bg-secondary text-secondary-foreground rounded-full p-4 shadow-lg hover:scale-110 transition-transform"
+          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-3 z-40 rounded-full bg-secondary p-3.5 text-secondary-foreground shadow-lg transition-transform hover:scale-110 md:left-6 md:p-4 lg:bottom-6"
           aria-label="Open chat"
         >
           <MessageCircle size={24} />
         </button>
       )}
       {open && (
-        <div className="fixed bottom-6 left-6 z-40 w-[90vw] max-w-sm h-[70vh] max-h-[560px] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-3 right-3 z-50 flex h-[min(70dvh,560px)] max-h-[560px] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl animate-fade-in-up md:left-6 md:right-auto md:h-[70vh] md:w-[90vw] md:max-w-sm lg:bottom-6">
           <div className="flex items-center justify-between p-3 bg-primary text-primary-foreground">
             <div>
               <h4 className="font-semibold text-sm">Leafy 🌿</h4>
