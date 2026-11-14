@@ -143,6 +143,30 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => { fetchCart(); }, [fetchCart]);
 
+  // Sync abandoned cart snapshot for authenticated users
+  useEffect(() => {
+    if (!user || items.length === 0) return;
+    const timer = setTimeout(async () => {
+      try {
+        const snapshot = items.map((i) => ({
+          product_id: i.product_id,
+          name: i.product.name,
+          price: i.product.price,
+          quantity: i.quantity,
+          image_url: i.product.image_url,
+        }));
+        await supabase.rpc("sync_abandoned_cart", {
+          p_snapshot: snapshot,
+          p_total: subtotal,
+        });
+      } catch {
+        // Silently handle background abandoned cart sync
+      }
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [user, items, subtotal]);
+
   const addToCart = async (productId: string, quantity = 1) => {
     if (!user) {
       const local = getGuestCart();

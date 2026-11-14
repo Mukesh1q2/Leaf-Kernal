@@ -303,6 +303,23 @@ serve(async (req) => {
     // Clear cart
     await supabase.from("cart_items").delete().eq("user_id", user.id);
 
+    // Send in-app notification to customer
+    try {
+      await supabase.from("notifications").insert({
+        user_id: user.id,
+        type: "order",
+        title: "🎉 Order Confirmed!",
+        message: `Your payment was verified. Order #${order_id.slice(0, 8).toUpperCase()} is now confirmed!`,
+        link: `/track/${order_id}`,
+        metadata: {
+          order_id: order_id,
+          payment_id: razorpay_payment_id,
+        },
+      });
+    } catch (notifErr) {
+      console.warn("In-app notification failed to create:", notifErr);
+    }
+
     // Dispatch Order Confirmation Email
     let emailDispatched = false;
     try {

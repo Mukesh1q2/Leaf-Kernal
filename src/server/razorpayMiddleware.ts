@@ -199,6 +199,51 @@ export function razorpayApiPlugin(options?: RazorpayPluginOptions): Plugin {
           return;
         }
 
+        // Endpoint: POST /api/razorpay-webhook (for local webhook simulation/testing)
+        if (url === "/api/razorpay-webhook") {
+          if (req.method !== "POST") {
+            res.statusCode = 405;
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({ error: "Method not allowed. Use POST." }));
+            return;
+          }
+
+          let body = "";
+          req.on("data", (chunk: Buffer) => {
+            body += chunk.toString();
+          });
+
+          req.on("end", async () => {
+            try {
+              const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || keySecret;
+              const signature = req.headers["x-razorpay-signature"] as string;
+
+              if (webhookSecret && signature) {
+                const expectedSignature = crypto
+                  .createHmac("sha256", webhookSecret)
+                  .update(body)
+                  .digest("hex");
+
+                if (expectedSignature.toLowerCase() !== signature.toLowerCase()) {
+                  res.statusCode = 400;
+                  res.setHeader("Content-Type", "application/json");
+                  res.end(JSON.stringify({ error: "Invalid webhook signature." }));
+                  return;
+                }
+              }
+
+              res.statusCode = 200;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ received: true, status: "ok" }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+          return;
+        }
+
         next();
       });
     },

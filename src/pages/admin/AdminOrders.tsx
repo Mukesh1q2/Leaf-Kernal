@@ -25,7 +25,24 @@ const AdminOrders = () => {
     setOrders(data || []);
   };
 
-  useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => {
+    fetchOrders();
+
+    const channel = supabase
+      .channel("admin-orders-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        () => {
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const updateStatus = async (id: string, currentStatus: string, newStatus: string) => {
     if (newStatus === currentStatus) return;

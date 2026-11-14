@@ -23,7 +23,31 @@ const AdminDeliveries = () => {
     const dmap = new Map((d || []).map((x: any) => [x.order_id, x]));
     setOrders((o || []).map((x: any) => ({ ...x, delivery: dmap.get(x.id) })));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+
+    const channel = supabase
+      .channel("admin-deliveries-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "deliveries" },
+        () => {
+          load();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        () => {
+          load();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const openEdit = (order: any) => {
     setEditing(order);
@@ -57,6 +81,14 @@ const AdminDeliveries = () => {
       const { error } = await (supabase.from("deliveries" as any) as any).insert(payload);
       if (error) return toast.error(error.message);
     }
+
+    // Keep orders status synchronized
+    if (form.status === "delivered" && editing.status !== "delivered") {
+      await supabase.from("orders").update({ status: "delivered" }).eq("id", editing.id);
+    } else if (["shipped", "out_for_delivery"].includes(form.status) && editing.status === "confirmed") {
+      await supabase.from("orders").update({ status: "shipped" }).eq("id", editing.id);
+    }
+
     toast.success("Delivery updated — customer notified");
     setEditing(null);
     load();

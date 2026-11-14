@@ -24,15 +24,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const tryClaimPendingReferral = async () => {
+      if (typeof window === "undefined") return;
+      const pendingCode = sessionStorage.getItem("lk_referral_code");
+      if (pendingCode) {
+        try {
+          await supabase.rpc("claim_referral", { p_code: pendingCode });
+        } catch {
+          // Ignore silently if already claimed or invalid
+        } finally {
+          sessionStorage.removeItem("lk_referral_code");
+        }
+      }
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        tryClaimPendingReferral();
+      }
       setLoading(false);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        tryClaimPendingReferral();
+      }
       setLoading(false);
     });
 

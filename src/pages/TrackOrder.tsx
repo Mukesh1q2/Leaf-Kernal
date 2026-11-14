@@ -139,6 +139,36 @@ const TrackOrder = () => {
     })();
   }, [orderId, user]);
 
+  useEffect(() => {
+    if (!orderId) return;
+
+    const channel = supabase
+      .channel(`track-order-${orderId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "deliveries", filter: `order_id=eq.${orderId}` },
+        (payload) => {
+          if (payload.new) {
+            setDelivery((prev: any) => ({ ...prev, ...(payload.new as any) }));
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
+        (payload) => {
+          if (payload.new) {
+            setOrder((prev: any) => ({ ...prev, ...(payload.new as any) }));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderId]);
+
   const deliveryStatus = delivery?.status || (order?.status === "delivered" ? "delivered" : order?.status === "shipped" ? "shipped" : "placed");
   const currentIdx = Math.max(0, STEPS.findIndex((s) => s.key === deliveryStatus));
   const isOverallLoading = authLoading || loading;

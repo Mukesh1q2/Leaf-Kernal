@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -34,6 +34,30 @@ const Auth = () => {
   const nextPath = sanitizeRedirectPath(rawNext, "/");
   const goNext = () => {
     navigate(nextPath, { replace: true });
+  };
+
+  const [referralCode, setReferralCode] = useState(() => {
+    return searchParams.get("ref") || (typeof window !== "undefined" ? sessionStorage.getItem("lk_referral_code") || "" : "");
+  });
+
+  useEffect(() => {
+    const refParam = searchParams.get("ref");
+    if (refParam) {
+      const clean = refParam.trim().toUpperCase();
+      sessionStorage.setItem("lk_referral_code", clean);
+      setReferralCode(clean);
+    }
+  }, [searchParams]);
+
+  const handleClaimReferral = async (userId: string) => {
+    const code = referralCode.trim() || sessionStorage.getItem("lk_referral_code");
+    if (!code) return;
+    try {
+      await supabase.rpc("claim_referral", { p_code: code });
+      sessionStorage.removeItem("lk_referral_code");
+    } catch (e) {
+      console.warn("Could not link referral code:", e);
+    }
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -87,6 +111,7 @@ const Auth = () => {
         toast.error(formatAuthError(error));
       } else if (data?.session) {
         // Auto-confirmed session
+        await handleClaimReferral(data.session.user.id);
         toast.success("Account created successfully! Welcome to UVEDIQ.");
         goNext();
       } else {
@@ -140,7 +165,7 @@ const Auth = () => {
     setLoading(true);
 
     const formattedPhone = phone.startsWith("+") ? phone : `+91${phone}`;
-    const { error } = await supabase.auth.verifyOtp({
+    const { data: otpData, error } = await supabase.auth.verifyOtp({
       phone: formattedPhone,
       token: otp,
       type: "sms",
@@ -149,6 +174,9 @@ const Auth = () => {
     if (error) {
       toast.error(error.message);
     } else {
+      if (otpData?.session?.user) {
+        await handleClaimReferral(otpData.session.user.id);
+      }
       toast.success("Welcome!");
       goNext();
     }
@@ -326,6 +354,29 @@ const Auth = () => {
                       required
                     />
                     {fieldErrors.confirmPassword && <p className="text-xs text-destructive mt-1">{fieldErrors.confirmPassword}</p>}
+                  </div>
+                )}
+
+                {!isLogin && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">
+                      Referral Code <span className="text-muted-foreground font-normal text-xs">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={referralCode}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setReferralCode(val);
+                        if (val) {
+                          sessionStorage.setItem("lk_referral_code", val);
+                        } else {
+                          sessionStorage.removeItem("lk_referral_code");
+                        }
+                      }}
+                      className={`${inputClass} font-mono uppercase tracking-wider`}
+                      placeholder="e.g. LKABC123"
+                    />
                   </div>
                 )}
 
