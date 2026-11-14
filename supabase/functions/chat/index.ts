@@ -244,18 +244,26 @@ serve(async (req) => {
       });
     }
 
-    // Tool-calling loop with Gemini API
-    const convo: any[] = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
+    // Initialize Gemini conversation format directly from client messages
+    const geminiContents: any[] = [];
+    for (const msg of messages) {
+      if (msg.role === "system") continue;
+      if (msg.role === "user" && msg.content) {
+        geminiContents.push({ role: "user", parts: [{ text: String(msg.content) }] });
+      } else if (msg.role === "assistant" && msg.content) {
+        geminiContents.push({ role: "model", parts: [{ text: String(msg.content) }] });
+      }
+    }
+
+    // Tool-calling loop with Gemini API (max 3 tool hops)
     let safety = 0;
     while (safety++ < 4) {
-      const geminiContents = toGeminiContents(convo);
-
       let data: any = null;
       let lastErrText = "";
       const candidateModels = [
-        Deno.env.get("GEMINI_MODEL") || "gemini-3.8-flash",
-        "gemini-flash-latest",
-        "gemini-3.5-flash",
+        Deno.env.get("GEMINI_MODEL") || "gemini-3.1-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemini-3.8-flash",
       ].filter((v, i, a) => a.indexOf(v) === i);
 
       for (const model of candidateModels) {
@@ -265,6 +273,7 @@ serve(async (req) => {
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
+              signal: AbortSignal.timeout(6500),
               body: JSON.stringify({
                 system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
                 contents: geminiContents,
@@ -295,20 +304,20 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "AI service error" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      const candidate = data.candidates?.[0];
-      if (!candidate?.content?.parts) break;
 
-      const parts = candidate.content.parts;
+      const candidate = data.candidates?.[0];
+      const parts = candidate?.content?.parts;
+      if (!parts || parts.length === 0) break;
 
       // Check for function calls
       const functionCalls = parts.filter((p: any) => p.functionCall);
 
       if (functionCalls.length === 0) {
-        // No tool calls — extract text response
+        // No function calls — final assistant reply reached!
         const textParts = parts.filter((p: any) => p.text);
         const responseText = textParts.map((p: any) => p.text).join("") || "";
 
-        // Persist & return
+        // Persist assistant message in DB
         if (convId && responseText) {
           await supabase.from("chat_messages").insert({
             conversation_id: convId,
@@ -316,32 +325,29 @@ serve(async (req) => {
             content: responseText,
           });
         }
+
         return new Response(JSON.stringify({
           conversation_id: convId,
           message: responseText,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Execute function calls and add results to conversation
-      // Add the assistant's function call to conversation (in OpenAI format for tracking)
-      const toolCalls = functionCalls.map((fc: any, i: number) => ({
-        id: `call_${i}_${Date.now()}`,
-        function: {
-          name: fc.functionCall.name,
-          arguments: JSON.stringify(fc.functionCall.args || {}),
-        },
-      }));
-      convo.push({ role: "assistant", content: null, tool_calls: toolCalls });
+      // Preserve native model parts (crucial: retains Gemini thoughtSignature and IDs)
+      geminiContents.push({ role: "model", parts: candidate.content.parts });
 
-      for (const tc of toolCalls) {
-        let parsed: any = {};
-        try { parsed = JSON.parse(tc.function.arguments || "{}"); } catch {}
-        const result = await execTool(tc.function.name, parsed, userId);
-        convo.push({
-          role: "tool",
-          name: tc.function.name,
-          tool_call_id: tc.id,
-          content: JSON.stringify(result),
+      // Execute each tool and append functionResponse parts
+      for (const fcPart of functionCalls) {
+        const fc = fcPart.functionCall;
+        const toolResult = await execTool(fc.name, fc.args || {}, userId);
+
+        geminiContents.push({
+          role: "user",
+          parts: [{
+            functionResponse: {
+              name: fc.name,
+              response: toolResult,
+            }
+          }]
         });
       }
     }
