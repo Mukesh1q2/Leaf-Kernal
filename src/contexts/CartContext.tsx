@@ -143,6 +143,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => { fetchCart(); }, [fetchCart]);
 
+  const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
+  const subtotal = items.reduce((sum, i) => sum + (i.product?.price ?? 0) * i.quantity, 0);
+
   // Sync abandoned cart snapshot for authenticated users
   useEffect(() => {
     if (!user || items.length === 0) return;
@@ -234,9 +237,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     await supabase.from("cart_items").delete().eq("user_id", user.id);
     setItems([]);
   };
-
-  const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
-  const subtotal = items.reduce((sum, i) => sum + (i.product?.price ?? 0) * i.quantity, 0);
 
   return (
     <CartContext.Provider value={{ items, loading, itemCount, subtotal, addToCart, removeFromCart, updateQuantity, clearCart, refreshCart: fetchCart }}>
