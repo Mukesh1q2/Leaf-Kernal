@@ -49,27 +49,46 @@ serve(async (req) => {
 
     const prompt = `Generate a professional product photography image of "${productName}" - ${description || "a premium Indian superfood supplement"}. Clean white background, studio lighting, high-quality commercial product shot. The product should be displayed in premium packaging with natural botanical elements. Ultra high resolution, 1:1 aspect ratio.`;
 
-    // Call Google Gemini Imagen API directly
-    const aiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${geminiApiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"],
-          },
-        }),
-      }
-    );
+    // Call Google Gemini Imagen API with model fallback
+    const imageCandidateModels = [
+      Deno.env.get("GEMINI_IMAGE_MODEL") || "gemini-2.5-flash-image",
+      "gemini-3-pro-image",
+      "gemini-3.1-flash-image",
+    ];
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      throw new Error(`Gemini API error: ${errText}`);
+    let aiData: any = null;
+    let lastImageErr = "";
+
+    for (const imageModel of imageCandidateModels) {
+      try {
+        const aiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:generateContent?key=${geminiApiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                responseModalities: ["TEXT", "IMAGE"],
+              },
+            }),
+          }
+        );
+
+        if (aiResponse.ok) {
+          aiData = await aiResponse.json();
+          break;
+        }
+
+        lastImageErr = await aiResponse.text();
+      } catch (err: any) {
+        lastImageErr = err?.message || String(err);
+      }
     }
 
-    const aiData = await aiResponse.json();
+    if (!aiData) {
+      throw new Error(`Gemini Image API error across models: ${lastImageErr}`);
+    }
 
     // Extract image from Gemini response
     const parts = aiData.candidates?.[0]?.content?.parts || [];

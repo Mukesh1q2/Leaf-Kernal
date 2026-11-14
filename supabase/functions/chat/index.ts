@@ -250,31 +250,51 @@ serve(async (req) => {
     while (safety++ < 4) {
       const geminiContents = toGeminiContents(convo);
 
-      const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: geminiContents,
-            tools: geminiTools,
-          }),
-        }
-      );
+      let data: any = null;
+      let lastErrText = "";
+      const candidateModels = [
+        Deno.env.get("GEMINI_MODEL") || "gemini-3.8-flash",
+        "gemini-flash-latest",
+        "gemini-3.5-flash",
+      ].filter((v, i, a) => a.indexOf(v) === i);
 
-      if (!resp.ok) {
-        if (resp.status === 429) {
-          return new Response(JSON.stringify({ error: "Too many messages — try again in a moment." }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      for (const model of candidateModels) {
+        try {
+          const resp = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                contents: geminiContents,
+                tools: geminiTools,
+              }),
+            }
+          );
+
+          if (resp.status === 429) {
+            return new Response(JSON.stringify({ error: "Too many messages — try again in a moment." }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+
+          if (resp.ok) {
+            data = await resp.json();
+            break;
+          }
+
+          lastErrText = await resp.text();
+          console.warn(`Gemini model ${model} error (${resp.status}):`, lastErrText);
+        } catch (fetchErr: any) {
+          console.warn(`Gemini model ${model} fetch exception:`, fetchErr);
         }
-        const t = await resp.text();
-        console.error("Gemini API error:", resp.status, t);
+      }
+
+      if (!data) {
+        console.error("All Gemini candidate models failed:", lastErrText);
         return new Response(JSON.stringify({ error: "AI service error" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-
-      const data = await resp.json();
       const candidate = data.candidates?.[0];
       if (!candidate?.content?.parts) break;
 
